@@ -247,11 +247,12 @@ end
 -- Result handlers --
 ---------------------
 
+-- Convert an int reply of 0 or 1 to a boolean.
 local function tobool(res)
    if res == 0 then return false
    elseif res == 1 then return true
    else 
-      local err = fmt("Expected 0 or 1 (->bool), got %s.", res)
+      local err = fmt("Expected 0 or 1, got %s.", res)
       error(err)
    end
 end
@@ -267,12 +268,20 @@ local function info_table(s)
    local t = {}
    local gmatch, find, sub = string.gmatch, string.find, string.sub
 
-   for k,v in gmatch(s, "([^:]*):([^\n]*)\n") do
+   for k,v in gmatch(s, "([^:]*):([^\n]*)\n") do   --split key:val
       if k and v then t[k] = v end
    end
 
    return t
 end 
+
+
+-- Split keys (which is a string, not a bulk_multi), return an iterator.
+local function keys_iter(s)
+   print("keys_iter", string.len(s))
+   return string.gmatch(s, "([^ ]+) -")
+end
+
 
 --------------------------
 -- High-level interface --
@@ -287,11 +296,13 @@ end
 --
 -- info -> k:v table
 
+
 -------------------------
 -- Connection handling --
 -------------------------
 cmd(nil, "quit", "QUIT", "Close the connection")
 cmd("k", "auth", "AUTH", "Simple password authentication if enabled")
+
 
 -----------------------------------------
 -- Commands operating on string values --
@@ -316,10 +327,8 @@ cmd("k", "type", "TYPE", "Return the type of the value stored at key")
 -- Commands operating on the key space --
 -----------------------------------------
 
-cmd("p", "keys", "KEYS", "Return all the keys matching a given pattern")
+cmd("p", "keys", "KEYS", "Return all the keys matching a given pattern", keys_iter)
 cmd(nil, "randomkey", "RANDOMKEY", "Return a random key from the key space")
-
--- name -> key?
 cmd("nn", "rename", "RENAME", 
     [[Rename the old key in the new one, destroying the newname key if it
 already exists]])
