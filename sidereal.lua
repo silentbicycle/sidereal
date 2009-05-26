@@ -41,35 +41,45 @@
 ------------------------------------------------------------------------
 
 
-------------------
--- Requirements --
-------------------
+-------------------------
+-- Module requirements --
+-------------------------
 
 local socket = require "socket"
-local fmt, sub = string.format, string.sub
+local fmt, sub, len = string.format, string.sub, string.len
+local gmatch, find = string.gmatch, string.find
+local concat, assert, type = table.concat, assert, type
+local setmetatable = setmetatable
 
--- module "..."
+module(...)
 
 -- global null sentinel, to distinguish from Lua's nil
 NULL = setmetatable( {}, {__tostring = function() return "NULL" end} )
 
 
--- Documentation table, filled in by cmd.
+-- Documentation table, filled in by cmd below.
 local doctable = {}
 
 
+----------------
+-- Connection --
+----------------
+
 local Connection = {}           -- prototype
 
+
+-- Print known functions, their arguments, and docstrings.
 function Connection:help()
    local output = {}
    for key,docpair in pairs(doctable) do
       -- Pretty simple formatting...
       output[#output+1] = fmt("%s (%s):\n  * %s\n", key, docpair[1], docpair[2])
    end
-   print(table.concat(output, "\n"))
+   print(concat(output, "\n"))
 end
 
 
+-- Create and return a connection object.
 function connect(host, port)
    host = host or "localhost"
    port = port or 6379
@@ -80,7 +90,11 @@ function connect(host, port)
    if not s then error(fmt("Could not connect to %s port %d.", host, port)) end
 
    -- Also putting help() in connection namespace, so it's extra-visible.
-   local conn = { __socket = s, help = Connection.help }
+   local conn = { __socket = s, 
+                  host = host,
+                  port = port,
+                  help = Connection.help 
+               }
    setmetatable(conn, { __index = Connection } )
 
    return conn
@@ -88,22 +102,22 @@ end
 
 
 -- Read a bulk value from a socket.
-function bulk(s)
+local function bulk(s)
    local val                             -- the value read
    local len = tonumber(s:receive"*l")   -- length response to read
    if len == -1 then return NULL else val = s:receive(len) end
 
-   local nl = assert(s:receive(2) == "\r\n", "Protocol error")
+   local nl = s:receive(2) == "\r\n"
    return val
 end
 
 
 -- Return an iterator for a sequence of bulk values read from a socket.
-function bulk_multi(s)
+local function bulk_multi(s)
    local ct = tonumber(s:receive"*l")
    local function iter()
       while ct >= 1 do
-         assert(s:receive(1) == "$")
+         s:receive(1) -- assert(s:receive(1) == "$")
          ct = ct - 1
          return bulk(s)
       end
@@ -116,7 +130,9 @@ end
 function Connection:receive()
    local t = s:receive(1)
 
-   if t == nil then error("Connection to Redis server was lost.") end
+   if t == nil then
+      error("Connection to Redis server was lost.") 
+   end
 
    local action = 
       { ["-"]=function(s) error('Redis: "' .. s:receive"*l" .. '"') end,    -- error
@@ -129,10 +145,25 @@ function Connection:receive()
 end
 
 
+-- Send a command, don't wait for response.
+function Connection:send(cmd)
+   self.__socket:send(cmd .. "\r\n")
+end
+
+
 -- Send a command and return the response.
 function Connection:sendrecv(cmd, handler)
    handler = handler or function(x) return x end
-   self.__socket:send(cmd .. "\r\n")
+
+   -- TODO: Check if connection is still available?
+   self:send(cmd)
+   local res = self:receive()
+   -- self.__socket:send(cmd .. "\r\n")
+   if handler then
+      return handler(res)
+   else
+      return res
+   end 
    return handler(self:receive())
 end
 
@@ -147,7 +178,7 @@ local formatter = {}
 function formatter.simple(val) return val end
 
 function formatter.bulk(val)
-   return fmt("%s\r\n%s\r\n", string.len(val), val)
+   return fmt("%s\r\n%s\r\n", len(val), val)
 end
 
 function formatter.bulklist(list)
@@ -179,21 +210,24 @@ local types = { k={ "key", formatter.simple, tester.todo },
 local function gen_doc(name, type_str, doc)
    local type_sig = {}
 
-   for t in string.gmatch(type_str, ".") do
-      local tpair = assert(types[t], "type not found: " .. t)
+   for t in gmatch(type_str, ".") do
+      local tpair = types[t] -- assert(types[t], "type not found: " .. t)
       local tk = tpair[1]  --type key
       if tk then type_sig[#type_sig+1] = tk end
    end
 
-   return { table.concat(type_sig, ", "), doc }
+   return { concat(type_sig, ", "), doc }
 end
 
 
 -- Register a command.
-local function cmd(arg_types, name, fname, doc, result_handler) 
+local function cmd(arg_types, name, fname, doc, opts) 
+   rest = rest or {}
    arg_types = arg_types or ""
 
    local typecheck_fun = typechecker(arg_types)
+
+   local result_handler = rest.result_handler    -- optional
 
    Connection[name] = 
       function(self, ...) 
@@ -210,33 +244,34 @@ end
 -- Generate a function to check and process arguments.
 function typechecker(ats)
    local tt = {}   --type's (name, formatter, checker) tuple
+   local types = types
 
-   for k in string.gmatch(ats, ".") do tt[#tt+1] = types[k] end
+   for k in gmatch(ats, ".") do tt[#tt+1] = types[k] end
 
    return 
    function(...)
       arglist = { ... } or {}   --unprocessed args
       local args = {}           --processed
 
-      if #arglist > #tt then 
-         local err = fmt("Too many args, got %d, expected %d", 
-                         #arglist, #fmt)
-         error(err)
-      end
+      -- if #arglist > #tt then 
+      --    local err = fmt("Too many args, got %d, expected %d", 
+      --                    #arglist, #fmt)
+      --    error(err)
+      -- end
 
       for i = 1,#arglist do
-         local formatter = assert(tt[i][2], "processor not found")
-         local checker = assert(tt[i][3], "checker not found")
+         local formatter = tt[i][2] -- assert(tt[i][2], "processor not found")
+         -- local checker = tt[i][3] -- assert(tt[i][3], "checker not found")
          local arg = arglist[i]
-         if not checker(arg) then
-            local err = fmt("Error in argument %d: Got %s, expected %s",
-                            i, arg, tt[i][1])
-            error(err, 4) -- 4 up stack? or 3?
-         end
+         -- if not checker(arg) then
+         --    local err = fmt("Error in argument %d: Got %s, expected %s",
+         --                    i, arg, tt[i][1])
+         --    error(err, 4) -- 4 up stack? or 3?
+         -- end
          args[i] = formatter(arg)
 
       end
-      local argstring = table.concat(args, " ")
+      local argstring = concat(args, " ")
       -- print(#args .. " args --> ", argstring)
       return argstring
    end
@@ -266,7 +301,6 @@ end
 -- Make a table out of the output from c:info().
 local function info_table(s)
    local t = {}
-   local gmatch, find, sub = string.gmatch, string.find, string.sub
 
    for k,v in gmatch(s, "([^:]*):([^\n]*)\n") do   --split key:val
       if k and v then t[k] = v end
@@ -278,8 +312,8 @@ end
 
 -- Split keys (which is a string, not a bulk_multi), return an iterator.
 local function keys_iter(s)
-   print("keys_iter", string.len(s))
-   return string.gmatch(s, "([^ ]+) -")
+   print("keys_iter", len(s))
+   return gmatch(s, "([^ ]+) -")
 end
 
 
@@ -287,62 +321,57 @@ end
 -- High-level interface --
 --------------------------
 
--- key_iter(pattern)
 -- # -> count
 -- conn[key]  -> val (or { arr val} or { set val }, as the case may be)
 -- conn[key] = blah   -> SET or MSET etc., or DEL if nil
 --
 -- better interface for expire? the time val.
---
--- info -> k:v table
+-- bulk SET via table and pairs?
 
 
--------------------------
--- Connection handling --
--------------------------
+------------------------
+-- Generated commands --
+------------------------
+
+-- Connection handling
 cmd(nil, "quit", "QUIT", "Close the connection")
 cmd("k", "auth", "AUTH", "Simple password authentication if enabled")
 
 
------------------------------------------
--- Commands operating on string values --
------------------------------------------
-
+-- Commands operating on string values
 cmd("kv", "set", "SET", "Set a key to a string value")
 cmd("k", "get", "GET", "Return the string value of the key")
 cmd("kv", "getset", "GETSET", "Set a key to a string returning the old value of the key")
 cmd("K", "mget", "MGET", "Multi-get, return the strings values of the keys")
 cmd("kv", "setnx", "SETNX",
-    "Set a key to a string value if the key does not exist", tobool)
+    "Set a key to a string value if the key does not exist", 
+    { result_handler=tobool } )
 cmd("k", "incr", "INCR", "Increment the integer value of key")
 cmd("ki", "incrby", "INCRBY", "Increment the integer value of key by integer")
 cmd("k", "decr", "DECR", "Decrement the integer value of key")
 cmd("ki", "decrby", "DECRBY", "Decrement the integer value of key by integer")
-cmd("k", "exists", "EXISTS", "Test if a key exists", tobool)
+cmd("k", "exists", "EXISTS", "Test if a key exists", 
+    { result_handler=tobool } )
 cmd("k", "del", "DEL", "Delete a key")
 cmd("k", "type", "TYPE", "Return the type of the value stored at key")
 
 
------------------------------------------
--- Commands operating on the key space --
------------------------------------------
-
+-- Commands operating on the key space
 cmd("p", "keys", "KEYS", "Return all the keys matching a given pattern", keys_iter)
 cmd(nil, "randomkey", "RANDOMKEY", "Return a random key from the key space")
 cmd("nn", "rename", "RENAME", 
     [[Rename the old key in the new one, destroying the newname key if it
 already exists]])
+
 cmd("nn", "renamenx", "RENAMENX", 
     [[Rename the old key in the new one, if the newname key does not
 already exist]])
+
 cmd(nil, "dbsize", "DBSIZE", "Return the number of keys in the current db")
-cmd("t", "expire", "EXPIRE", "Set a time to live in seconds on a key ") -- XXX
+cmd("t", "expire", "EXPIRE", "Set a time to live in seconds on a key ")
 
 
----------------------------------
--- Commands operating on lists --
----------------------------------
-
+-- Commands operating on lists
 cmd("kv", "rpush", "RPUSH", 
     "Append an element to the tail of the List value at key")
 cmd("kv", "lpush", "LPUSH",
@@ -360,16 +389,14 @@ cmd("kiv", "lset", "LSET",
 cmd("kiv", "lrem", "LREM", 
     [[Remove the first-N, last-N, or all the elements matching value from
 the List at key]])
+
 cmd("k", "lpop", "LPOP", 
     "Return and remove (atomically) the first element of the List at key")
 cmd("k", "rpop", "RPOP", 
     "Return and remove (atomically) the last element of the List at key ")
 
 
---------------------------------
--- Commands operating on sets --
---------------------------------
-
+-- Commands operating on sets
 cmd("km", "sadd", "SADD", 
     "Add the specified member to the Set value at key")
 cmd("km", "srem", "SREM", 
@@ -377,31 +404,33 @@ cmd("km", "srem", "SREM",
 cmd("k", "scard", "SCARD", 
     "Return the number of elements (the cardinality) of the Set at key")
 cmd("km", "sismember", "SISMEMBER", 
-    "Test if the specified value is a member of the Set at key", tobool)
+    "Test if the specified value is a member of the Set at key", 
+    { result_handler=tobool } )
 cmd("K", "sinter", "SINTER", 
     "Return the intersection between the Sets stored at key1, key2, ..., keyN")
 cmd("kK", "sinterstore", "SINTERSTORE", 
     [[Compute the intersection between the Sets stored at key1, key2, ..., keyN,
 and store the resulting Set at dstkey]])
+
 cmd("K", "sunion", "SUNION", 
     "Return the union between the Sets stored at key1, key2, ..., keyN")
 cmd("kK", "sunionstore", "SUNIONSTORE",
     [[Compute the union between the Sets stored at key1, key2, ..., keyN,
 and store the resulting Set at dstkey]])
+
 cmd("K", "sdiff", "SDIFF", 
     [[Return the difference between the Set stored at key1 and all the
 Sets key2, ..., keyN]])
+
 cmd("kK", "sdiffstore", "SDIFFSTORE", 
     [[Compute the difference between the Set key1 and all the Sets 
 key2, ..., keyN, and store the resulting Set at dstkey]])
+
 cmd("k", "smembers", "SMEMBERS", 
     "Return all the members of the Set value at key")
 
 
-------------------------------------------
--- Multiple databases handling commands --
-------------------------------------------
-
+-- Multiple databases handling commands
 cmd("i", "select", "SELECT", 
     "Select the DB having the specified index")
 cmd("ki", "move", "MOVE", 
@@ -412,18 +441,12 @@ cmd(nil, "flushall", "FLUSHALL",
     "Remove all the keys from all the databases")
 
 
--------------
--- Sorting --
--------------
-
+-- Sorting
 -- TODO: Special case for this? typesig is kpsep .. "[AD]"
 --cmd("sort", "SORT", "Key BY pattern LIMIT start end GET pattern ASC|DESC ALPHA Sort a Set or a List accordingly to the specified parameters ")
 
 
-----------------------------------
--- Persistence control commands --
-----------------------------------
-
+-- Persistence control commands
 cmd(nil, "save", "SAVE", "Synchronously save the DB on disk")
 cmd(nil, "bgsave", "BGSAVE", "Asynchronously save the DB on disk")
 cmd(nil, "lastsave", "LASTSAVE", 
@@ -432,16 +455,12 @@ cmd(nil, "shutdown", "SHUTDOWN",
     "Synchronously save the DB on disk, then shutdown the server ")
 
 
-------------------------------------
--- Remote server control commands --
-------------------------------------
-
-cmd(nil, "info", "INFO", "Provide information and statistics about the server", info_table)
+-- Remote server control commands
+cmd(nil, "info", "INFO", "Provide information and statistics about the server",
+    { result_handler=info_table } )
 cmd(nil, "monitor", "MONITOR", "Dump all the received requests in real time ")
 
 
---------------------
--- Other commands --
---------------------
-
-cmd(nil, "ping", "PING", "Ping the database.") -- Not in the CommandReference, hmm...
+-- Other commands, not in the CommandReference.
+cmd(nil, "ping", "PING", "Ping the database.", 
+    { result_handler=function(s) return s == "PONG" end })
