@@ -1,5 +1,3 @@
-#!/usr/bin/env lua
-
 ------------------------------------------------------------------------
 -- Copyright (c) 2009 Scott Vokes <scott@silentbicycle.com>
 --
@@ -16,11 +14,10 @@
 -- OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 ------------------------------------------------------------------------
 --
--- To connect to a redis server, use:
---     c = redis.connect(host, port)  (defaults to "localhost", 6379)
+-- To connect to a Redis server, use:
+--     c = sidereal.connect(host, port, [pass_hook])
 --
--- To get a list of supported commands, use:
---     c:help()
+-- If a pass hook function is provided, sidereal is non-blocking.
 --
 ------------------------------------------------------------------------
 
@@ -30,21 +27,22 @@
 -------------------------
 
 local socket = require "socket"
-local error, fmt, len = error, string.format, string.len
-local sub, upper = string.sub, string.upper
-local gmatch, find = string.gmatch, string.find
-local concat, assert, type = table.concat, assert, type
-local setmetatable, tonumber = setmetatable, tonumber
-local ipairs, pairs, print, sort = ipairs, pairs, print, table.sort
+local string, table = string, table
+
+local assert, error, ipairs, pairs, print, setmetatable, type =
+   assert, error, ipairs, pairs, print, setmetatable, type
+local tonumber, tostring = tonumber, tostring
 
 module(...)
 
 -- global null sentinel, to distinguish from Lua's nil
-NULL = setmetatable( {}, {__tostring = function() return "NULL" end} )
+NULL = setmetatable( {}, {__tostring = function() return "[NULL]" end} )
 
 
--- Documentation table, filled in by cmd below.
-local doctable = {}
+-- aliases
+local fmt, len, sub, gmatch =
+   string.format, string.len, string.sub, string.gmatch
+local concat, sort = table.concat, table.sort
 
 
 ----------------
@@ -52,104 +50,61 @@ local doctable = {}
 ----------------
 
 local Connection = {}           -- prototype
-local ConnMT = { __index = Connection }
-
--- Print known functions, their arguments, and docstrings.
-function Connection:help()
-   local output = {}
-   local keys = {}
-   for key in pairs(doctable) do keys[#keys+1] = key end
-   sort(keys)
-   for _,key in ipairs(keys) do
-      -- Pretty simple formatting...
-      local docpair = doctable[key]
-      output[#output+1] = fmt("%s (%s):\n  * %s\n", key, docpair[1], docpair[2])
-   end
-   print(concat(output, "\n"))
-end
+local ConnMT = { __index = Connection, __string = Connection.tostring }
 
 
--- Create and return a connection object.
-function connect(host, port)
+---Create and return a connection object.
+-- @param pass_hook If defined, use non-blocking IO, and run it to defer control.
+-- (use to send a 'pass' message to a coroutine scheduler.)
+function connect(host, port, pass_hook)
    host = host or "localhost"
    port = port or 6379
    assert(type(host) == "string", "host must be string")
    assert(type(port) == "number" and port > 0 and port < 65536)
 
-   local sock = socket.connect(host, port)
-   sock:settimeout(0.1)         --FIXME
-   if not sock then 
+   local s = socket.connect(host, port)
+   if pass_hook then s:settimeout(0) end    --async operation
+   if not s then 
       error(fmt("Could not connect to %s port %d.", host, port)) 
    end
 
    -- Also putting help() in connection namespace, so it's extra-visible.
-   local conn = { __socket = sock, 
+   local conn = { _socket = s, 
                   host = host,
                   port = port,
-                  help = Connection.help 
+                  _pass = pass_hook,
+                  help = Connection.help
                }
-   setmetatable(conn, ConnMT )
-   return conn
+   return setmetatable(conn, ConnMT )
 end
 
 
--- Read a bulk value from a socket.
-local function bulk(s)
-   local val                             -- the value read
-   local len = tonumber(s:receive"*l")   -- length response to read
-   if len == -1 then return NULL else val = s:receive(len) end
-
-   local nl = s:receive(2) == "\r\n"
-   return val
+---Call pass hook.
+-- @usage Called to yield to caller, for non-blocking usage.
+function Connection:pass()
+   local pass = self._pass
+   if pass then pass() end
 end
 
 
--- Return an iterator for a sequence of bulk values read from a socket.
-local function bulk_multi(s)
-   local ct = tonumber(s:receive"*l")
-   local function iter()
-      while ct >= 1 do
-         s:receive(1)
-         ct = ct - 1
-         return bulk(s)
-      end
-   end
-   return iter, ct
-end
-
-
--- Actions
-local action = 
-   { ["-"]=function(s) error('Redis: "' .. s:receive"*l" .. '"') end,
-     ["+"]=function(s) return s:receive"*l" end,           -- one line
-     ["$"]=bulk,
-     ["*"]=bulk_multi,
-     [":"]=function(s) return tonumber(s:receive"*l") end  -- integer
-  }
-
-
--- Read and parse a response.
-function Connection:receive()
-   local sock = self.__socket
-
-   local t, res = sock:receive(1)
-
-   if t == nil then error(res) end
-
-   return action[t](sock)
-end
-
-
--- Send a command, don't wait for response.
+---Send a command, don't wait for response.
 function Connection:send(cmd)
-   self.__socket:send(cmd .. "\r\n")
+   local pass = self.pass
+
+   while true do
+      local ok, err = self._socket:send(cmd .. "\r\n")
+      if ok then return true
+      elseif err ~= "timeout" then return false, err
+      else
+         self:pass()
+      end
+   end   
 end
 
 
--- Send a command and return the response.
+---Send a command and return the response.
 function Connection:sendrecv(cmd, handler)
-   -- self:send(cmd)
-   self.__socket:send(cmd .. "\r\n")
+   self._socket:send(cmd .. "\r\n")
    local res = self:receive()
    if handler then
       return handler(res)
@@ -159,327 +114,338 @@ function Connection:sendrecv(cmd, handler)
 end
 
 
-------------------------
--- Command generation --
-------------------------
+---------------
+-- Responses --
+---------------
 
--- Argument formatters, for sending.
-local formatter = {}
-
-function formatter.simple(val) return val end
-
-function formatter.bulk(val)
-   return fmt("%s\r\n%s\r\n", len(val), val)
+---Read and handle response, passing if necessary.
+function Connection:receive_line()
+   local ok, line = self:receive("*l")
+   if not ok then return false, line end
+   
+   return self:handle_response(line)
 end
 
-function formatter.bulklist(list)
-   local t = {}
-   local bulk = formatter.bulk
-   t[1] = "*" .. #list .. "\r\n"
 
-   for i,v in ipairs(list) do
-      t[i+1] = bulk(v)
+---Receive, passing if necessary.
+function Connection:receive(len)
+   -- TODO rather than using socket:receive, should receive bulk and save unread.
+   local s, pass = self._socket, self.pass
+   while true do
+      local data, err, rest = s:receive(len)
+      local read = data or rest
+      
+      if read and read ~= "" then
+         return true, read
+      elseif err == "timeout" then
+         self:pass()
+      else
+         return false, err
+      end
    end
-
-   return concat(t, "$")
 end
 
 
--- Type tests
-local tester = {}
+---Read a bulk response.
+function Connection:bulk_receive(length)
+   local buf, rem = {}, length
 
-function tester.todo() return true end
+   while rem > 0 do
+      local ok, read = self:receive(rem + 2) -- +2 for CRLF
+      if not ok then return false, read end
+
+      buf[#buf+1] = read
+      rem = rem - read:len()
+   end
+   return true, concat(buf)
+end
+
+
+---Return an interator for N bulk responses.
+function Connection:bulk_multi_receive(count)
+   local ct = count
+
+   local iter = coroutine.wrap(
+      function()
+         while ct > 0 do
+            local ok, read = self:receive("*l")
+            if not ok then return false, read end
+
+            local length = assert(tonumber(read), "Bad length")
+            ok, read = self:bulk_receive(length)
+            if ok then
+               coroutine.yield(true, read)
+            else
+               return false, read
+            end
+         end
+      end)
+   return iter
+end
+
+
+---Handle response lines.
+function Connection:handle_response(line, s, pass, to_bool)
+   assert(type(line) == "string" and line:len() > 0, "Bad response")
+   local r = line:sub(1, 2)
+
+   if r == "+" then             -- +ok
+      return true, line:sub(2)
+   elseif r == "-" then         -- -error
+      return false, line:sub(2)
+   elseif r == ":" then         -- :integer (incl. 0 & 1 for false,true)
+      local num = tonumber(line:sub(2))
+      return true and (to_bool and num == 1 or num)
+   elseif r == "$" then         -- $4\r\nbulk\r\n
+      local len = assert(tonumber(line:sub(2)), "Bad length")
+      if len == -1 then
+         return true, NULL
+      else
+         local ok, data = self:receive(len)
+         return ok, data
+      end
+   elseif r == "*" then         -- bulk-multi (e.g. *3\r\n(three bulk) )
+      local count = assert(tonumber(line:sub(2)), "Bad count")
+      return true, self:bulk_multi_receive(count)
+   else
+      return false, "Bad response"
+   end
+end
+
+
+--------------
+-- Commands --
+--------------
+
+local typetest = {
+   str = function(x) return type(x) == "string" end,
+   int = function(x) return type(x) == "number" and math.floor(x) == x end,
+   float = function(x) return type(x) == "number" end,
+   table = function(x) return type(x) == "table" end,
+   strlist = function(x)
+                if type(x) ~= "table" then return false end
+                for k,v in pairs(x) do
+                   if type(k) ~= "number" or type(v) ~= "string" then return false end
+                end
+                return true
+             end
+}
+
+
+local formatter = {
+   simple = function(x) return tostring(x) end,
+   bulk = function(x)
+             local s = tostring(x)
+             return fmt("%d\r\n%s\r\n", s:len(), s)
+          end,
+   bulklist = function(array)
+                 local ct, buf = #array, {}
+                 for _,val in ipairs(array) do
+                    buf[#buf+1] = fmt("%d\r\n%s\r\n", val:len(), val)
+                 end
+                 return fmt("%d\r\n%s", ct, concat(buf))
+              end,
+   table = function(t)
+              local buf = {}
+              for k,v in pairs(t) do
+                 buf[#buf+1] = fmt("%s %s", k, v)
+              end
+              return concat(buf, " ")
+           end
+}
 
 
 -- type key -> ( description, formatter function, test function )
-local types = { k={ "key", formatter.simple, tester.todo },
-                v={ "value", formatter.bulk, tester.todo },
-                K={ "key list", formatter.bulklist, tester.todo }, --uppercase->list
-                i={ "integer", formatter.simple, tester.todo },
-                p={ "pattern", formatter.simple, tester.todo },
-                n={ "name", formatter.simple, tester.todo },
-                t={ "time", formatter.simple, tester.todo },
-                s={ "start index", formatter.simple, tester.todo }, -- int
-                e={ "end index", formatter.simple, tester.todo },   -- int
-                m={ "member", formatter.bulk, tester.todo },      -- ??? key?
+local types = { k={ "key", formatter.simple, typetest.str },
+                d={ "db", formatter.simple, typetest.int },
+                v={ "value", formatter.bulk, typetest.str },
+                K={ "key list", formatter.bulklist, typetest.strlist },
+                i={ "integer", formatter.simple, typetest.int },
+                f={ "float", formatter.simple, typetest.float },
+                p={ "pattern", formatter.simple, typetest.str },
+                n={ "name", formatter.simple, typetest.str },
+                t={ "time", formatter.simple, typetest.int },
+                T={ "table", formatter.table, typetest.table },
+                s={ "start", formatter.simple, typetest.int },
+                e={ "end", formatter.simple, typetest.int },
+                m={ "member", formatter.bulk, typetest.todo },      -- FIXME, key???
              }
 
-
--- Generate type and docstring pair for a command.
-local function gen_doc(name, type_str, doc)
-   local type_sig = {}
-
-   for t in gmatch(type_str, ".") do
-      local tpair = types[t] -- assert(types[t], "type not found: " .. t)
-      local tk = tpair[1]  --type key
-      if tk then type_sig[#type_sig+1] = tk end
+local function gen_arg_hook(funcname, spec)
+   if not spec then
+      return function(t) return t end
    end
 
-   return { concat(type_sig, ", "), doc }
+   local fs, tts = {}, {}
+
+   for arg in gmatch(spec, ".") do
+      --print(funcname, arg)
+      local row = types[arg]
+      if row then
+         local f, tt = row[2], row[3]
+         fs[#fs+1] = f
+         tts[#tts+1] = tt
+      else
+         print("TODO Handle ", arg)
+      end
+   end
+
+   local check = function(args)
+                    for i=1,#tts do
+                       if not tts[i](args[i]) then return false end
+                    end
+                    return true
+                 end
+
+   return function(t)
+             --print("Called " .. funcname, #fs)
+             local args = {}
+             for i,v in ipairs(t) do
+                --print("*", i, v)
+                args[i] = fs[i](v)
+             end
+             return args, check
+          end
 end
 
 
 -- Register a command.
-local function cmd(fname, arg_types, name, doc, opts) 
+local function cmd(rfun, arg_types, name, doc, opts) 
    opts = opts or {}
    arg_types = arg_types or ""
-   local typecheck_fun = typechecker(arg_types)
    local result_handler = opts.result_handler    -- optional
+
+   local format_args, check = gen_arg_hook(name, arg_types)
 
    Connection[name] = 
       function(self, ...) 
-         local arglist = typecheck_fun(...)
-         return self:sendrecv(fname .. " " .. arglist, result_handler) 
+         local arglist = format_args({...})
+
+         if self.DEBUG then check(arglist) end
+         local send = fmt("%s %s", rfun, concat(arglist, " "))
+         return self:sendrecv(send, result_handler) 
       end
 
-   local docstring = gen_doc(name, arg_types, doc)
-   -- print(docstring)
-   doctable[name] = docstring
+   --doctable[name] = docstring
 end
-
-
--- Generate a function to check and process arguments.
-function typechecker(ats)
-   local tt = {}   --type's (name, formatter, checker) tuple
-   local types = types
-
-   local adjs = {}
-   for i=1,len(ats) do
-      local tt = types[sub(ats, i, i)]
-      if tt[2] ~= formatter.simple then
-         adjs[#adjs+1] = { i, tt[2] }
-      end
-   end
-
-   local adjust
-   if #adjs > 0 then
-      adjust = function(args)
-                  for _,pair in ipairs(adjs) do
-                     local idx, form = pair[1], pair[2]
-                     args[idx] = form(args[idx])
-                  end
-                  return args
-               end
-   end
-
-   return 
-   function(...)
-      arglist = { ... } or {}   --unprocessed args
-      if adjust then arglist = adjust(arglist) end
-      return concat(arglist, " ")
-   end
-end
-
-
----------------------
--- Result handlers --
----------------------
-
--- Convert an int reply of 0 or 1 to a boolean.
-local function tobool(res)
-   if res == 0 then return false
-   elseif res == 1 then return true
-   else 
-      local err = fmt("Expected 0 or 1, got %s.", res)
-      error(err)
-   end
-end
-
-
--- local function totable
--- local function tolist -> { val, val2, etc. }
--- local function toset -> { key=true, key2=true, etc. }
-
-
--- Make a table out of the output from c:info().
-local function info_table(s)
-   local t = {}
-
-   for k,v in gmatch(s, "([^:]*):([^\r\n]*)\r\n") do   --split key:val
-      if k and v then t[k] = v end
-   end
-
-   return t
-end 
-
-
--- Split keys (which is a string, not a bulk_multi), return an iterator.
-local function keys_iter(s)
-   return gmatch(s, "([^ ]+) -")
-end
-
-
------------------------------
--- Table-style interface ? --
------------------------------
-
--- conn[key]  -> val (or { arr val} or { set val }, as the case may be)
--- conn[key] = blah   -> SET or MSET etc., or DEL if nil
---
--- better interface for expire? the time val.
--- bulk SET via table and pairs?
-
-
-------------------------
--- Generated commands --
-------------------------
 
 -- Connection handling
-cmd("QUIT", "", "quit", "Close the connection")
-cmd("AUTH", "k", "auth", "Simple password authentication if enabled")
+cmd("QUIT", nil, "quit")
+cmd("AUTH", "k", "auth")
 
+-- Commands operating on all the kind of values
+cmd("EXISTS", "k", "exists", true)
+cmd("DEL", "k", "del")
+cmd("TYPE", "k", "type")
+cmd("KEYS", "p", "keys")
+cmd("RANDOMKEY", nil, "randomkey")
+cmd("RENAME", "kk", "rename")
+cmd("RENAMENX", "kk", "renamenx")
+cmd("DBSIZE", nil, "dbsize")
+cmd("EXPIRE", "kt", "expire")
+cmd("EXPIREAT", "kt", "expireat")
+cmd("TTL", "k", "ttl")
+cmd("SELECT", "d", "select")
+cmd("MOVE", "kd", "move", true)
+cmd("FLUSHDB", nil, "flushdb")
+cmd("FLUSHALL", nil, "flushall")
 
--- Commands operating on string values
-cmd("SET", "kv", "set", "Set a key to a string value")
-cmd("GET", "k", "get", "Return the string value of the key")
-cmd("GETSET", "kv", "getset", "Set a key to a string returning the old value of the key")
-cmd("MGET", "K", "mget", "Multi-get, return the strings values of the keys")
-cmd("SETNX", "kv", "setnx",
-    "Set a key to a string value if the key does not exist", 
-    { result_handler=tobool } )
-cmd("INCR", "k", "incr", "Increment the integer value of key")
-cmd("INCRBY", "ki", "incrby", "Increment the integer value of key by integer")
-cmd("DECR", "k", "decr", "Decrement the integer value of key")
-cmd("DECRBY", "ki", "decrby", "Decrement the integer value of key by integer")
-cmd("EXISTS", "k", "exists", "Test if a key exists", 
-    { result_handler=tobool } )
-cmd("DEL", "k", "del", "Delete a key")
-cmd("TYPE", "k", "type", "Return the type of the value stored at key")
-
-
--- Commands operating on the key space
-cmd("KEYS", "p", "keys", "Return all the keys matching a given pattern", 
-    { result_handler=keys_iter } )
-cmd("RANDOMKEY", "", "randomkey", "Return a random key from the key space")
-cmd("RENAME", "nn", "rename", 
-    [[Rename the old key in the new one, destroying the newname key if it
-    already exists]])
-
-cmd("RENAMENX", "nn", "renamenx", 
-    [[Rename the old key in the new one, if the newname key does not
-    already exist]])
-
-cmd("DBSIZE", "", "dbsize", "Return the number of keys in the current db")
-cmd("EXPIRE", "t", "expire", "Set a time to live in seconds on a key ")
-
+--Commands operating on string values
+cmd("SET", "kv", "set")
+cmd("GET", "k", "get")
+cmd("GETSET", "kv", "getset")
+cmd("MGET", "K", "mget")
+cmd("SETNX", "kv", "setnx", true)
+cmd("MSET", "T", "mset")        --FIXME
+cmd("MSETNX", "T", "msetnx", true)
+cmd("INCR", "k", "incr")
+cmd("INCRBY", "ki", "incrby")
+cmd("DECR", "k", "decr")
+cmd("DECRBY", "ki", "decrby")
 
 -- Commands operating on lists
-cmd("RPUSH", "kv", "rpush", 
-    "Append an element to the tail of the List value at key")
-cmd("LPUSH", "kv", "lpush",
-    "Append an element to the head of the List value at key")
-cmd("LLEN", "k", "llen", 
-    "Return the length of the List value at key")
-cmd("LRANGE", "kse", "lrange", 
-    "Return a range of elements from the List at key")
-cmd("LTRIM", "kse", "ltrim", 
-    "Trim the list at key to the specified range of elements")
-cmd("LINDEX", "ki", "lindex", 
-    "Return the element at index position from the List at key")
-cmd("LSET", "kiv", "lset", 
-    "Set a new value as the element at index position of the List at key")
-cmd("LREM", "kiv", "lrem", 
-    [[Remove the first-N, last-N, or all the elements matching value from
-    the List at key]])
-
-cmd("LPOP", "k", "lpop", 
-    "Return and remove (atomically) the first element of the List at key")
-cmd("RPOP", "k", "rpop", 
-    "Return and remove (atomically) the last element of the List at key ")
-
+cmd("RPUSH", "kv", "rpush")
+cmd("LPUSH", "kv", "lpush")
+cmd("LLEN", "k", "llen")
+cmd("LRANGE", "kse", "lrange")
+cmd("LTRIM", "kse", "ltrim")
+cmd("LINDEX", "ki", "lindex")
+cmd("LSET", "kiv", "lset")
+cmd("LREM", "kiv", "lrem")
+cmd("LPOP", "k", "lpop")
+cmd("RPOP", "k", "rpop")
+cmd("RPOPLPUSH", "kk", "rpoplpush")
 
 -- Commands operating on sets
-cmd("SADD", "km", "sadd", 
-    "Add the specified member to the Set value at key")
-cmd("SREM", "km", "srem", 
-    "Remove the specified member from the Set value at key")
-cmd("SCARD", "k", "scard", 
-    "Return the number of elements (the cardinality) of the Set at key")
-cmd("SISMEMBER", "km", "sismember", 
-    "Test if the specified value is a member of the Set at key", 
-    { result_handler=tobool } )
-cmd("SINTER", "K", "sinter", 
-    "Return the intersection between the Sets stored at key1, key2, ..., keyN")
-cmd("SINTERSTORE", "kK", "sinterstore", 
-    [[Compute the intersection between the Sets stored at key1, key2, ..., keyN,
-    and store the resulting Set at dstkey]])
+cmd("SADD", "km", "sadd", true)
+cmd("SREM", "km", "srem", true)
+cmd("SPOP", "k", "spop")
+cmd("SMOVE", "kkm", "smove")
+cmd("SCARD", "k", "scard")
+cmd("SISMEMBER", "km", "sismember")
+cmd("SINTER", "K", "sinter")
+cmd("SINTERSTORE", "kK", "sinterstore")
+cmd("SUNION", "K", "sunion")
+cmd("SUNIONSTORE", "kK", "sunionstore")
+cmd("SDIFF", "K", "sdiff")
+cmd("SDIFFSTORE", "kK", "sdiffstore")
+cmd("SMEMBERS", "k", "smembers")
+cmd("SRANDMEMBER", "k", "srandmember")
 
-cmd("SUNION", "K", "sunion", 
-    "Return the union between the Sets stored at key1, key2, ..., keyN")
-cmd("SUNIONSTORE", "kK", "sunionstore",
-    [[Compute the union between the Sets stored at key1, key2, ..., keyN,
-    and store the resulting Set at dstkey]])
-
-cmd("SDIFF", "K", "sdiff", 
-    [[Return the difference between the Set stored at key1 and all the
-    Sets key2, ..., keyN]])
-
-cmd("SDIFFSTORE", "kK", "sdiffstore", 
-    [[Compute the difference between the Set key1 and all the Sets 
-    key2, ..., keyN, and store the resulting Set at dstkey]])
-
-cmd("SMEMBERS", "k", "smembers", 
-    "Return all the members of the Set value at key")
-
-
--- Multiple databases handling commands
-cmd("SELECT", "i", "select", 
-    "Select the DB having the specified index")
-cmd("MOVE", "ki", "move", 
-    "Move the key from the currently selected DB to the DB having as index dbindex")
-cmd("FLUSHDB", "", "flushdb", 
-    "Remove all the keys of the currently selected DB")
-cmd("FLUSHALL", "", "flushall", 
-    "Remove all the keys from all the databases")
-
-
--- Sorting
--- TODO: Special case for this? typesig is kpsep .. "[AD]"
---cmd("sort", "SORT", "Key BY pattern LIMIT start end GET pattern ASC|DESC ALPHA Sort a Set or a List accordingly to the specified parameters ")
-
+-- Commands operating on sorted sets
+cmd("ZADD", "kfm", "zadd")
+cmd("ZREM", "km", "zrem")
+cmd("ZINCRBY", "kim", "zincrby")
+cmd("ZRANGE", "kse", "zrange")
+cmd("ZREVRANGE", "kse", "zrevrange")
+cmd("ZRANGEBYSCORE", "kff", "zrangebyscore")
+cmd("ZCARD", "k", "zcard")
+cmd("ZSCORE", "kk", "zscore")   --FIXME
+cmd("ZREMRANGEBYSCORE", "kff", "zremrangebyscore")
 
 -- Persistence control commands
-cmd("SAVE", "", "save", "Synchronously save the DB on disk")
-cmd("BGSAVE", "", "bgsave", "Asynchronously save the DB on disk")
-cmd("LASTSAVE", "", "lastsave", 
-    "Return the UNIX time stamp of the last successfully saving of the dataset on disk")
-cmd("SHUTDOWN", "", "shutdown", 
-    "Synchronously save the DB on disk, then shutdown the server ")
-
+cmd("SAVE", nil, "save")
+cmd("BGSAVE", nil, "bgsave")
+cmd("LASTSAVE", nil, "lastsave")
+cmd("SHUTDOWN", nil, "shutdown")
+cmd("BGREWRITEAOF", nil, "bgrewriteaof")
 
 -- Remote server control commands
-cmd("INFO", "", "info", "Provide information and statistics about the server",
-    { result_handler=info_table } )
-cmd("MONITOR", "", "monitor", "Dump all the received requests in real time ")
+cmd("INFO", nil, "info")
+cmd("MONITOR", nil, "monitor")
+cmd("PING", nil, "ping")        --not in reference...
+
+-- Other commands
+
+---Sort.
+-- SORT key [BY pattern] [LIMIT start count] [GET pattern] [ASC|DESC] [ALPHA] [STORE dstkey]
+function Connection:sort(key, t)
+   local by = t.by
+   local start, count = t.start, t.count
+   local pattern = t.pattern
+   local asc, desc, alpha = t.asc, t.desc, t.alpha
+   local dstkey = t.dstkey
+
+   assert(not(asc and desc), "ASC and DESC are mutually exclusive")
+   local b = {}
+
+   b[1] = fmt("SORT %s", tostring(key))
+   if pattern then b[#b+1] = fmt("BY %s", pattern) end
+   if start and count then b[#b+1] = fmt("LIMIT %d %d", start, count) end
+   if asc then b[#b+1] = "ASC" elseif desc then b[#b+1] = "DESC" end
+   if alpha then b[#b+1] = "ALPHA" end
+   if dstkey then b[#b+1] = fmt("STORE %s", dstkey) end
+   
+   return self:sendrecv(send, result_handler) 
+end
 
 
--- Other commands, not in the CommandReference.
-cmd("PING", "", "ping", "Ping the database.", 
-    { result_handler=function(s) return s == "PONG" end })
-
-
----------------------
--- Custom commands --
----------------------
-
--- Multiple SET, from table.
-function Connection:mset(t)
-   local sock = self.__socket
-   local tosend = {}
-
-   for k,v in pairs(t) do
-      tosend[#tosend+1] = fmt("SET %s %d\r\n%s\r\n\r\n",
-                              k, len(v), v)
+---Set/clear slave to another server.
+function Connection:slaveof(host, port)
+   if not host and not port then
+      return self:sendrecv("SLAVEOF no one")
+   else
+      assert(host and port)
+      return self:sendrecv(fmt("SLAVEOF %s %d", host, port))
    end
-
-   sock:send(concat(tosend))    --pipeline the whole thing
-   local stat, res
-   repeat
-      stat, res = sock:receive("*l")
-      if stat and stat ~= "+OK" then
-         error(sub(stat, 2))
-      end
-   until not stat
-
-   return "OK"
 end
