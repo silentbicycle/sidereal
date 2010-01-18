@@ -27,7 +27,7 @@
 -------------------------
 
 local socket = require "socket"
-local string, table = string, table
+local coroutine, string, table = coroutine, string, table
 
 local assert, error, ipairs, pairs, print, setmetatable, type =
    assert, error, ipairs, pairs, print, setmetatable, type
@@ -44,6 +44,11 @@ local fmt, len, sub, gmatch =
    string.format, string.len, string.sub, string.gmatch
 local concat, sort = table.concat, table.sort
 
+
+DEBUG = false
+local function trace(...)
+   if DEBUG then print(...) end
+end
 
 ----------------
 -- Connection --
@@ -93,7 +98,9 @@ function Connection:send(cmd)
 
    while true do
       local ok, err = self._socket:send(cmd .. "\r\n")
-      if ok then return true
+      if ok then
+         trace("SEND:", cmd)
+         return true
       elseif err ~= "timeout" then return false, err
       else
          self:pass()
@@ -103,14 +110,10 @@ end
 
 
 ---Send a command and return the response.
-function Connection:sendrecv(cmd, handler)
+function Connection:sendrecv(cmd, to_bool)
+   trace("SEND:", cmd)
    self._socket:send(cmd .. "\r\n")
-   local res = self:receive()
-   if handler then
-      return handler(res)
-   else
-      return res
-   end 
+   return self:receive_line(to_bool)
 end
 
 
@@ -119,11 +122,12 @@ end
 ---------------
 
 ---Read and handle response, passing if necessary.
-function Connection:receive_line()
+function Connection:receive_line(to_bool)
    local ok, line = self:receive("*l")
+   trace("RECV: ", ok, line)
    if not ok then return false, line end
    
-   return self:handle_response(line)
+   return self:handle_response(line, to_bool)
 end
 
 
@@ -134,7 +138,7 @@ function Connection:receive(len)
    while true do
       local data, err, rest = s:receive(len)
       local read = data or rest
-      
+
       if read and read ~= "" then
          return true, read
       elseif err == "timeout" then
@@ -151,62 +155,84 @@ function Connection:bulk_receive(length)
    local buf, rem = {}, length
 
    while rem > 0 do
-      local ok, read = self:receive(rem + 2) -- +2 for CRLF
+      local ok, read = self:receive(rem)
       if not ok then return false, read end
 
       buf[#buf+1] = read
       rem = rem - read:len()
    end
-   return true, concat(buf)
+   local res = concat(buf)
+   return true, res:sub(1, -3)  --drop the CRLF
 end
 
 
 ---Return an interator for N bulk responses.
+-- NB. All responses are read and queued, so pipelining works.
 function Connection:bulk_multi_receive(count)
    local ct = count
 
+   local queue = {}
+
+   trace(" * BULK_MULTI_RECV, ct=", count)
+
+   for i=1,ct do
+      local ok, read = self:receive("*l")
+      if not ok then return false, read end
+      trace("   READLINE ", ok, read)
+      assert(read:sub(1, 1) == "$", read:sub(1, 1))
+      local length = assert(tonumber(read:sub(2)), "Bad length")
+      if length == -1 then
+         ok, read = true, NULL
+      else
+         ok, read = self:bulk_receive(length + 2)
+      end
+      trace(" -- BULK_READ: ", ok, read)
+      if not ok then return false, read end
+      queue[i] = read
+   end
+
+
    local iter = coroutine.wrap(
       function()
-         while ct > 0 do
-            local ok, read = self:receive("*l")
-            if not ok then return false, read end
-
-            local length = assert(tonumber(read), "Bad length")
-            ok, read = self:bulk_receive(length)
-            if ok then
-               coroutine.yield(true, read)
-            else
-               return false, read
-            end
+         for i=1,ct do
+            trace("-- Bulk_multi_val: ", queue[i])
+            coroutine.yield(queue[i])
          end
       end)
-   return iter
+   return true, iter
 end
 
 
 ---Handle response lines.
-function Connection:handle_response(line, s, pass, to_bool)
+function Connection:handle_response(line, to_bool)
    assert(type(line) == "string" and line:len() > 0, "Bad response")
-   local r = line:sub(1, 2)
+   local r = line:sub(1, 1)
 
    if r == "+" then             -- +ok
       return true, line:sub(2)
    elseif r == "-" then         -- -error
-      return false, line:sub(2)
+      return false, line:match("-ERR (.*)")
    elseif r == ":" then         -- :integer (incl. 0 & 1 for false,true)
       local num = tonumber(line:sub(2))
-      return true and (to_bool and num == 1 or num)
+      if to_bool then
+         return true, num == 1 
+      else
+         return true, num
+      end
    elseif r == "$" then         -- $4\r\nbulk\r\n
       local len = assert(tonumber(line:sub(2)), "Bad length")
       if len == -1 then
          return true, NULL
+      elseif len == 0 then
+         assert(self:receive(2), "No CRLF following $0")
+         return true, ""
       else
-         local ok, data = self:receive(len)
+         local ok, data = self:bulk_receive(len + 2)
          return ok, data
       end
    elseif r == "*" then         -- bulk-multi (e.g. *3\r\n(three bulk) )
       local count = assert(tonumber(line:sub(2)), "Bad count")
-      return true, self:bulk_multi_receive(count)
+      return self:bulk_multi_receive(count)
    else
       return false, "Bad response"
    end
@@ -239,11 +265,13 @@ local formatter = {
              return fmt("%d\r\n%s\r\n", s:len(), s)
           end,
    bulklist = function(array)
+                 if type(array) ~= "table" then array = { array } end
                  local ct, buf = #array, {}
                  for _,val in ipairs(array) do
-                    buf[#buf+1] = fmt("%d\r\n%s\r\n", val:len(), val)
+                    --buf[#buf+1] = fmt("%d\r\n%s\r\n", val:len(), val)
+                    buf[#buf+1] = val
                  end
-                 return fmt("%d\r\n%s", ct, concat(buf))
+                 return concat(buf, " ")
               end,
    table = function(t)
               local buf = {}
@@ -279,38 +307,40 @@ local function gen_arg_hook(funcname, spec)
    local fs, tts = {}, {}
 
    for arg in gmatch(spec, ".") do
-      --print(funcname, arg)
       local row = types[arg]
       if row then
          local f, tt = row[2], row[3]
          fs[#fs+1] = f
          tts[#tts+1] = tt
       else
-         print("TODO Handle ", arg)
+         error("unmatched ", arg)
       end
    end
 
    local check = function(args)
-                    for i=1,#tts do
-                       if not tts[i](args[i]) then return false end
-                    end
-                    return true
-                 end
+         for i=1,#tts do
+            if not tts[i](args[i]) then return false end
+         end
+         return true
+      end
 
-   return function(t)
-             --print("Called " .. funcname, #fs)
-             local args = {}
-             for i,v in ipairs(t) do
-                --print("*", i, v)
-                args[i] = fs[i](v)
-             end
-             return args, check
-          end
+   local format = function(t)
+         local args = {}
+         for i,v in ipairs(t) do
+            args[i] = fs[i](v)
+         end
+         if #args < #fs then
+            error("Not enough arguments")
+         else
+            return args
+         end
+      end
+   return format, check
 end
 
 
 -- Register a command.
-local function cmd(rfun, arg_types, name, doc, opts) 
+local function cmd(rfun, arg_types, name, to_bool) 
    opts = opts or {}
    arg_types = arg_types or ""
    local result_handler = opts.result_handler    -- optional
@@ -319,11 +349,14 @@ local function cmd(rfun, arg_types, name, doc, opts)
 
    Connection[name] = 
       function(self, ...) 
-         local arglist = format_args({...})
+         local arglist, err = format_args({...})
+         if not arglist then return false, err end
 
          if self.DEBUG then check(arglist) end
          local send = fmt("%s %s", rfun, concat(arglist, " "))
-         return self:sendrecv(send, result_handler) 
+
+         local ok, res = self:sendrecv(send, to_bool)
+         if ok then return res else return false, res end
       end
 
    --doctable[name] = docstring
@@ -335,9 +368,8 @@ cmd("AUTH", "k", "auth")
 
 -- Commands operating on all the kind of values
 cmd("EXISTS", "k", "exists", true)
-cmd("DEL", "k", "del")
+cmd("DEL", "K", "del")
 cmd("TYPE", "k", "type")
-cmd("KEYS", "p", "keys")
 cmd("RANDOMKEY", nil, "randomkey")
 cmd("RENAME", "kk", "rename")
 cmd("RENAMENX", "kk", "renamenx")
@@ -374,7 +406,7 @@ cmd("LSET", "kiv", "lset")
 cmd("LREM", "kiv", "lrem")
 cmd("LPOP", "k", "lpop")
 cmd("RPOP", "k", "rpop")
-cmd("RPOPLPUSH", "kk", "rpoplpush")
+cmd("RPOPLPUSH", "kv", "rpoplpush")
 
 -- Commands operating on sets
 cmd("SADD", "km", "sadd", true)
@@ -396,9 +428,9 @@ cmd("SRANDMEMBER", "k", "srandmember")
 cmd("ZADD", "kfm", "zadd")
 cmd("ZREM", "km", "zrem")
 cmd("ZINCRBY", "kim", "zincrby")
-cmd("ZRANGE", "kse", "zrange")
-cmd("ZREVRANGE", "kse", "zrevrange")
-cmd("ZRANGEBYSCORE", "kff", "zrangebyscore")
+cmd("ZRANGE", "kse", "zrange")  --FIXME, "withscores" option
+cmd("ZREVRANGE", "kse", "zrevrange") --FIXME
+cmd("ZRANGEBYSCORE", "kff", "zrangebyscore") --FIXME
 cmd("ZCARD", "k", "zcard")
 cmd("ZSCORE", "kk", "zscore")   --FIXME
 cmd("ZREMRANGEBYSCORE", "kff", "zremrangebyscore")
@@ -409,21 +441,53 @@ cmd("BGSAVE", nil, "bgsave")
 cmd("LASTSAVE", nil, "lastsave")
 cmd("SHUTDOWN", nil, "shutdown")
 cmd("BGREWRITEAOF", nil, "bgrewriteaof")
-
--- Remote server control commands
-cmd("INFO", nil, "info")
 cmd("MONITOR", nil, "monitor")
-cmd("PING", nil, "ping")        --not in reference...
+
+-- These three are not in the reference, but in the TCL test suite.
+cmd("PING", nil, "ping")
+cmd("DEBUG", nil, "debug")
+cmd("RELOAD", nil, "reload")
+
 
 -- Other commands
 
----Sort.
+---Get server info.
+function Connection:info()
+   local ok, res = self:sendrecv("INFO")
+   if not ok then return false, res end
+   trace("RECV:", res)
+
+   local t = {}
+   for k,v in gmatch(res, "(.-):(.-)\r\n") do
+      if v:match("^%d+$") then v = tonumber(v) end
+      t[k] = v
+   end
+   return true, t
+end
+
+
+---Get an iterator for keys matching a pattern.
+function Connection:keys(pattern, raw)
+   assert(type(pattern) == "string", "Bad pattern")
+   local ok, res = self:sendrecv(fmt("KEYS %s", pattern))
+   if not ok then return false, res end
+   trace(ok, "RECV: ", res)
+
+   if raw then
+      return res
+   else
+      return string.gmatch(res, "[^ ]+")
+   end
+end
+
+
+---Sort the elements contained in the List, Set, or Sorted Set value at key.
 -- SORT key [BY pattern] [LIMIT start count] [GET pattern] [ASC|DESC] [ALPHA] [STORE dstkey]
 function Connection:sort(key, t)
    local by = t.by
    local start, count = t.start, t.count
    local pattern = t.pattern
-   local asc, desc, alpha = t.asc, t.desc, t.alpha
+   local asc, desc, alpha = t.asc, t.desc, t.alpha --default: ASC
    local dstkey = t.dstkey
 
    assert(not(asc and desc), "ASC and DESC are mutually exclusive")
