@@ -1,5 +1,23 @@
 require "sidereal"
 
+--------------------------------------------------------------------
+-- Test suite for Sidereal.
+-- This requires LUnit ( http://nessie.de/mroth/lunit ).
+--
+-- The tests were adapted from Salvatore Sanfilippo's TCL test
+-- suite with Emacs query-replace-regexp, keyboard macros, and
+-- occasional adaptation due to the semantic mismatches between
+-- TCL and Lua (counting from 1, tables, etc.).
+--
+-- Also, the TCL suite keeps the databases state from one test to
+-- another, while the Lua tests are self-contained. (The database
+-- is flushed between each test.)
+-- 
+-- To test non-blocking operation, set test_async to true.
+--------------------------------------------------------------------
+
+local nonblocking, trace_nb = true, false
+
 
 module("tests", lunit.testcase, package.seeall)
 
@@ -11,8 +29,16 @@ local function undbg() sidereal.DEBUG = sDEBUG end
 
 local do_slow, do_auth = false, false
 
+local pass_ct = 0
+
 function setup()
-   --local function pass() print("pass") end
+   local pass
+   if nonblocking then
+      pass = function()
+                pass_ct = pass_ct + 1
+                if trace_nb then print(" -- pass", pass_ct) end
+             end
+   end
    R = sidereal.connect("localhost", 6379, pass)
    R:flushall()                 --oh no! my data!
 end
@@ -945,33 +971,34 @@ end
 
     
 --[============[
+
 function test_Create_a_random_list_and_a_random_set()
-        local tosort = {}
-        array set seenrand {}
-        for i=0,10000 do
-            while 1 {
-                -- Make sure all the weights are different because
-                -- Redis does not use a stable sort but Tcl does.
-                randpath {
-                    local rint = [expr int(rand()*1000000)]
---                } {
-                    local rint = [expr rand()]
-                end
-                if {![info exists seenrand($rint)]} break
-            end
-            local seenrand =($rint) x
-            R:lpush(tosort $i)
-            R:sadd(tosort-set $i)
-            R:set(weight_$i $rint)
-            lappend tosort [list $i $rint]
-        end
-        local sorted = [lsort -index 1 -real $tosort]
-        local res = {}
-        for i=0,10000 do
-            res[#res+1] = [lindex $sorted $i 0]
-        end
-        format {}
---    } {}
+   local tosort = {}
+   local seenrand = {}
+   for i=0,9999 do
+      while true do
+         -- Make sure all the weights are different.
+         -- (Neither Redis nor Lua uses a stable sort.)
+         randpath {
+            local rint = [expr int(rand()*1000000)]
+            --                } {
+            local rint = [expr rand()]
+         end
+         if {![info exists seenrand($rint)]} break
+      end
+      local seenrand =($rint) x
+      R:lpush(tosort $i)
+      R:sadd(tosort-set $i)
+      R:set(weight_$i $rint)
+      lappend tosort [list $i $rint]
+   end
+   local sorted = [lsort -index 1 -real $tosort]
+   local res = {}
+   for i=0,10000 do
+      res[#res+1] = [lindex $sorted $i 0]
+   end
+   format {}
+   --    } {}
 end
 
 
