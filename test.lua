@@ -23,6 +23,60 @@ function teardown()
 end
 
 
+--compare iter or table to expected table
+local function cmp(got, exp)
+   if type(got) == "function" then --iter
+      for i,v in ipairs(exp) do
+         assert_equal(exp[i], got())
+      end
+   elseif type(got) == "table" then
+      for i,v in ipairs(exp) do
+         assert_equal(exp[i], got[i])
+      end
+   end
+end
+
+
+local function lsort(iter)
+   if type(iter) == "table" then
+      table.sort(iter)
+      return iter
+   end
+   assert(type(iter) == "function", "Bad iterator")
+   local vs = {}
+   for v in iter do vs[#vs+1] = v end
+   table.sort(vs)
+   return vs
+end
+
+
+local function luniq(s1, s2)
+   local vs = {}
+   for _,set in ipairs{ s1, s2 } do
+      local s = set
+      if type(s) == "function" then s = lsort(s) end
+      for _,v in ipairs(s) do vs[v] = true end
+   end
+   local svs = {}
+   for k in pairs(vs) do svs[#svs+1] = k end
+   table.sort(svs)
+   return svs
+end
+
+
+local function waitForBgsave()
+   while true do
+      local info = R:info(true)
+      if info:match("bgsave in progress") then
+         print("\nWaiting for background save to finish... ")
+         socket.select(nil, nil, 1) --sleep for 1 sec
+      else
+         return
+      end
+   end
+end
+
+
 -----------
 -- Tests --
 -----------
@@ -84,11 +138,7 @@ end
 function test_keys()
    setkeys("hello", {"key_x", "key_y", "key_z", "foo_a", "foo_b", "foo_c"})
 
-   local res = R:keys("foo*")
-   if not res then fail() end
-   local ks = {}
-   for k in res do ks[#ks+1] = k end
-   table.sort(ks)
+   local ks = lsort(R:keys("foo*"))
    assert_equal("foo_a", ks[1])
    assert_equal("foo_b", ks[2])
    assert_equal("foo_c", ks[3])
@@ -252,11 +302,7 @@ function test_basic_list_ops()
    res[#res+1] = R:lindex("mylist", 2)
    res[#res+1] = R:lindex("mylist", 100)
 
-   assert_equal(3, res[1])
-   assert_equal("b", res[2])
-   assert_equal("a", res[3])
-   assert_equal("c", res[4])
-   assert_equal(NULL, res[5])
+   cmp(res, { 3, "b", "a", "c", NULL })
 end
 
 
@@ -378,10 +424,8 @@ function test_RPOPLPUSH_base_case_pipeline()
    local l2 = R:lrange("newlist", 0, -1)
    assert_equal("d", v1)
    assert_equal("c", v2)
-   assert_equal("a", l1())
-   assert_equal("b", l1())
-   assert_equal("c", l2())
-   assert_equal("d", l2())
+   cmp(R:lrange("mylist", 0, -1), { "a", "b" })
+   cmp(R:lrange("newlist", 0, -1), { "c", "d" })
 end
 
 
@@ -401,13 +445,8 @@ function test_RPOPLPUSH_target_list_already_exists()
    R:rpush("newlist", "x")
    assert_equal("d", R:rpoplpush("mylist", "newlist"))
    assert_equal("c", R:rpoplpush("mylist", "newlist"))
-   local l1 = R:lrange("mylist", 0, -1)
-   local l2 = R:lrange("newlist", 0, -1)
-   assert_equal("a", l1())
-   assert_equal("b", l1())
-   assert_equal("c", l2())
-   assert_equal("d", l2())
-   assert_equal("x", l2())
+   cmp(R:lrange("mylist", 0, -1), { "a", "b" })
+   cmp(R:lrange("newlist", 0, -1), { "c", "d", "x" })
 end
 
 
@@ -640,251 +679,279 @@ function test_LRANGE_against_non_existing_key()
 end
 
 
---[============[
-
 function test_LTRIM_basics()
-        R:del("mylist")
-        for i=0,100 do
-            R:lpush("mylist" $i)
-            R:ltrim("mylist" 0 4)
-        end
-        R:lrange("mylist" 0, -1)
---    } {99 98 97 96 95}
+   R:del("mylist")
+   for i=0,99 do
+      R:lpush("mylist", i)
+      R:ltrim("mylist", 0, 4)
+   end
+   local iter = R:lrange("mylist", 0, -1)
+   for i=99,95,-1 do
+      assert_equal(tostring(i), iter())
+   end
 end
 
 
 function test_LTRIM_stress_testing()
-        local "mylist" = {}
-        local err = {}
-        for i=0,20 do
-            lappend "mylist" $i
-        end
-
-        for j=0,100 do
-            # Fill the list
-            R:del("mylist")
-            for i=0,20 do
-                R:rpush("mylist" $i)
-            end
-            # Trim at random
-            local a = [randomInt 20]
-            local b = [randomInt 20]
-            R:ltrim("mylist" $a $b)
-            if {R:lrange("mylist" 0, -1) ne [lrange $"mylist" $a $b]} {
-                local err = "R:lrange("mylist" 0, -1) != [lrange $"mylist" $a $b]"
-                break
-            end
-        end
-        set _ $err
---    } {}
+   local mylist = {}
+   local err = {}
+   for i=0,19 do mylist[#mylist] = i end
+   
+   for j=0,99 do
+      -- Fill the list
+      R:del("mylist")
+      for i=0,19 do
+         R:rpush("mylist", i)
+      end
+      -- Trim at random
+      local a = math.random(20)
+      local b = math.random(20)
+      R:ltrim("mylist", a, b)
+      local l = {};
+      for _,v in R:lrange("mylist", 0, -1) do
+         l[#l+1] = v
+      end
+      for i=a,b do
+         if mylist[i] ~= l[i] then fail() end
+      end
+   end
 end
 
 
-function test_!LSET()
-        R:del("mylist")
-        foreach x {99 98 97 96 95} {
-            R:rpush("mylist" $x)
-        end
-        R:lset("mylist" 1, "foo")
-        R:lset("mylist" -1, "bar")
-        R:lrange("mylist" 0, -1)
---    } {99 foo 97 96 bar}
+function test_not_LSET()
+   R:del("mylist")
+   for _,i in ipairs{99, 98, 97, 96, 95} do
+      R:rpush("mylist", i)
+   end
+   R:lset("mylist", 1, "foo")
+   R:lset("mylist", -1, "bar")
+   cmp(R:lrange("mylist", 0, -1),
+        {"99", "foo", "97", "96", "bar"})
 end
 
 
 function test_LSET_out_of_range_index()
-        local ok, err = R:lset("mylist" 10, "foo")
-        assert_match("ERR",, "err")
---    } {ERR*range*}
+   for _,i in ipairs{99, 98, 97, 96, 95} do
+      R:rpush("mylist", i)
+   end
+   local ok, err = R:lset("mylist", 10, "foo")
+   assert_false(ok)
+   assert_match("range", err)
 end
 
 
 function test_LSET_against_non_existing_key()
-        local ok, err = R:lset("nosuchkey", 10, "foo")
-        assert_match("ERR",, "err")
---    } {ERR*key*}
+   local ok, err = R:lset("nosuchkey", 10, "foo")
+   assert_false(ok)
+   assert_match("key", err)
 end
 
 
 function test_LSET_against_non_list_value()
-        R:set(nolist, "foobar")
-        local ok, err = R:lset(nolist 0, "foo")
-        assert_match("ERR",, "err")
---    } {ERR*value*}
+   R:set("nolist", "foobar")
+   local ok, err = R:lset("nolist", 0, "foo")
+   assert_false(ok)
+   assert_match("value", err)
 end
 
 
-function test_SADD,_SCARD,_SISMEMBER,_SMEMBERS_basics()
-        R:sadd(myset, "foo")
-        R:sadd(myset, "bar")
-        list R:scard(myset) R:sismember(myset, "foo") \
-            R:sismember(myset, "bar") R:sismember(myset, "bla") \
-            [lsort R:smembers(myset)]
---    } {2 1 1 0 {bar foo}}
+function test_SADD_SCARD_SISMEMBER_SMEMBERS_basics()
+   R:sadd("myset", "foo")
+   R:sadd("myset", "bar")
+   cmp( {R:scard("myset"),
+         R:sismember("myset", "foo"),
+         R:sismember("myset", "bar"),
+         R:sismember("myset", "bla") },
+        {2, true, true, false} )
+
+   local ms = lsort(R:smembers("myset"))
+   cmp(ms, {"bar", "foo"})
 end
 
 
 function test_SADD_adding_the_same_element_multiple_times()
-        R:sadd(myset, "foo")
-        R:sadd(myset, "foo")
-        R:sadd(myset, "foo")
-        R:scard(myset)
---    } {2}
+   R:sadd("myset", "foo")
+   R:sadd("myset", "bar")
+   R:sadd("myset", "foo")
+   R:sadd("myset", "foo")
+   assert_equal(2, R:scard("myset"))
 end
 
 
 function test_SADD_against_non_set()
-        local ok, err = R:sadd("mylist", "foo")
-        assert_match("ERR",, "err")
---    } {ERR*kind*}
+   R:set("mylist", "wait that's not a list")
+   local ok, err = R:sadd("mylist", "foo")
+   assert_false(ok)
+   assert_match("kind", err)
 end
 
 
 function test_SREM_basics()
-        R:sadd(myset, "ciao")
-        R:srem(myset, "foo")
-        lsort R:smembers(myset)
---    } {bar ciao}
+   R:sadd("myset", "foo")
+   R:sadd("myset", "bar")
+   R:sadd("myset", "ciao")
+   R:srem("myset", "foo")
+   cmp(lsort(R:smembers("myset")), {"bar", "ciao"})
 end
 
 
 function test_Mass_SADD_and_SINTER_with_two_sets()
-        for i=0,1000 do
-            R:sadd(set1 $i)
-            R:sadd(set2 [expr $i+995])
-        end
-        lsort R:sinter(set1 set2)
---    } {995 996 997 998 999}
+   for i=0,999 do R:sadd("set1", i); R:sadd("set2", i + 995) end
+
+   cmp(lsort(R:sinter("set1", "set2")),
+       {"995", "996", "997", "998", "999",})
 end
 
 
 function test_SUNION_with_two_sets()
-        lsort R:sunion(set1 set2)
-    } [lsort -uniq "R:smembers(set1) R:smembers(set2)"]
+   for i=0,999 do R:sadd("set1", i); R:sadd("set2", i + 995) end
+
+   local union = lsort(R:sunion("set1", "set2"))
+   cmp(union, luniq(R:smembers("set1"), R:smembers("set2")))
 end
 
     
 function test_SINTERSTORE_with_two_sets()
-        R:sinterstore(setres set1 set2)
-        lsort R:smembers(setres)
---    } {995 996 997 998 999}
+   for i=0,999 do R:sadd("set1", i); R:sadd("set2", i + 995) end
+
+   R:sinterstore("setres", "set1", "set2")
+   cmp(lsort(R:smembers("setres")),
+       {"995", "996", "997", "998", "999"})
 end
 
 
-function test_SINTERSTORE_with_two_sets,_after_a_DEBUG_RELOAD()
-        R:debug(reload)
-        R:sinterstore(setres set1 set2)
-        lsort R:smembers(setres)
---    } {995 996 997 998 999}
+function test_SINTERSTORE_with_two_sets_after_a_DEBUG_RELOAD()
+   for i=0,999 do R:sadd("set1", i); R:sadd("set2", i + 995) end
+   R:debug(); R:reload()
+   R:sinterstore("setres", "set1", "set2")
+   cmp(lsort(R:smembers("setres")),
+       {"995", "996", "997", "998", "999"})
 end
 
 
 function test_SUNIONSTORE_with_two_sets()
-        R:sunionstore(setres set1 set2)
-        lsort R:smembers(setres)
-    } [lsort -uniq "R:smembers(set1) R:smembers(set2)"]
+   for i=0,999 do R:sadd("set1", i); R:sadd("set2", i + 995) end
+   R:sunionstore("setres", "set1", "set2")
+   local ms = lsort(R:smembers("setres"))
+   cmp(ms, luniq(R:smembers("set1"), R:smembers("set2")))
 end
 
 
 function test_SUNIONSTORE_against_non_existing_keys()
-        R:set(setres, "xxx")
-        list R:sunionstore(setres foo111 bar222) R:exists(xxx)
---    } {0 0}
+   R:set("setres", "xxx")
+   assert_equal(0, R:sunionstore("setres", "foo111", "bar222"))
+   assert_false(R:exists("xxx"))
+end
+
+
+local function gsadd(key, t)
+   for _,v in ipairs(t) do R:sadd(key, v) end
 end
 
 
 function test_SINTER_against_three_sets()
-        R:sadd(set3 999)
-        R:sadd(set3 995)
-        R:sadd(set3 1000)
-        R:sadd(set3 2000)
-        lsort R:sinter(set1 set2 set3)
---    } {995 999}
+   for i=0,999 do R:sadd("set1", i); R:sadd("set2", i + 995) end
+   gsadd("set3", {999, 995, 1000, 2000})
+   cmp(lsort(R:sinter("set1", "set2", "set3")),
+       {"995", "999"})
 end
 
 
 function test_SINTERSTORE_with_three_sets()
-        R:sinterstore(setres set1 set2 set3)
-        lsort R:smembers(setres)
---    } {995 999}
+   for i=0,999 do R:sadd("set1", i); R:sadd("set2", i + 995) end
+   gsadd("set3", {999, 995, 1000, 2000})
+   
+   R:sinterstore("setres", "set1", "set2", "set3")
+   cmp(lsort(R:smembers("setres")), {"995", "999"})
 end
 
 
 function test_SUNION_with_non_existing_keys()
-        lsort R:sunion("nokey"1 set1 set2 nokey2)
-    } [lsort -uniq "R:smembers(set1) R:smembers(set2)"]
+   cmp(lsort(R:sunion("nokey1", "set1", "set2", "nokey2")),
+       luniq(R:smembers("set1"), R:smembers("set2")))
 end
 
 
 function test_SDIFF_with_two_sets()
-        for i=5,1000 do
-            R:sadd(set4 $i)
-        end
-        lsort R:sdiff(set1 set4)
---    } {0 1 2 3 4}
+   for i=0,999 do R:sadd("set1", i) end
+   for i=5,999 do R:sadd("set4", i) end
+   cmp(lsort(R:sdiff("set1", "set4")),
+       {"0", "1", "2", "3", "4"})
 end
 
 
 function test_SDIFF_with_three_sets()
-        R:sadd(set5 0)
-        lsort R:sdiff(set1 set4 set5)
---    } {1 2 3 4}
+   for i=0,999 do R:sadd("set1", i) end
+   for i=5,999 do R:sadd("set4", i) end
+   R:sadd("set5", 0)
+   cmp(lsort(R:sdiff("set1", "set4", "set5")),
+       {"1", "2", "3", "4"})
 end
 
 
 function test_SDIFFSTORE_with_three_sets()
-        R:sdiffstore(sres set1 set4 set5)
-        lsort R:smembers(sres)
---    } {1 2 3 4}
+   for i=0,999 do R:sadd("set1", i) end
+   for i=5,999 do R:sadd("set4", i) end
+   R:sadd("set5", 0)
+
+   R:sdiffstore("sres", "set1", "set4", "set5")
+   local ms = R:smembers("sres")
+   cmp(lsort(ms), {"1", "2", "3", "4"})
 end
 
 
 function test_SPOP_basics()
-        R:del(myset)
-        R:sadd(myset 1)
-        R:sadd(myset 2)
-        R:sadd(myset 3)
-        list [lsort [list R:spop(myset) R:spop(myset) R:spop(myset)]] R:scard(myset)
---    } {{1 2 3} 0}
+   R:del("myset")
+   R:sadd("myset", 1)
+   R:sadd("myset", 2)
+   R:sadd("myset", 3)
+   cmp(lsort({R:spop("myset"),
+              R:spop("myset"),
+              R:spop("myset")}),
+       {"1", "2", "3"})
+   assert_equal(0, R:scard("myset"))
 end
 
 
-function test_SAVE_-_make_sure_there_are_all_the_types_as_values()
-        # Wait for a background saving in progress to terminate
-        waitForBgsave $r
-        R:lpush(mysavelist, "hello")
-        R:lpush(mysavelist, "world")
-        R:set(myemptykey {})
-        R:set(mynormalkey {blablablba})
-        R:zadd(mytestzset a 10)
-        R:zadd(mytestzset b 20)
-        R:zadd(mytestzset c 30)
---        R:save(    } {OK})
+function test_SAVE_make_sure_there_are_all_the_types_as_values()
+   waitForBgsave()
+   R:lpush("mysavelist", "hello")
+   R:lpush("mysavelist", "world")
+   R:set("myemptykey", NULL)
+   R:set("mynormalkey", "blablablba")
+   R:zadd("mytestzset", "a", 10)
+   R:zadd("mytestzset", "b", 20)
+   R:zadd("mytestzset", "c", 30)
+   assert_equal("OK", R:save())
 end
 
 
-function test_!SRANDMEMBER()
-        R:del(myset)
-        R:sadd(myset, "a")
-        R:sadd(myset, "b")
-        R:sadd(myset, "c")
-        unset -nocomplain myset
-        array myset {}
-        for i=0,100 do
-            set myset(R:srandmember(myset)) 1
-        end
-        lsort [array names myset]
---    } {a b c}
+local function test_SRANDMEMBER() -- FIXME
+   R:del("myset")
+   R:sadd("myset", "a")
+   R:sadd("myset", "b")
+   R:sadd("myset", "c")
+--    unset -nocomplain myset   -- ???
+   local ms = {}
+   for i=0,99 do
+      ms[tonumber(R:srandmember("myset"))] = 1
+   end
+
+   local ks = {}
+   for k,v in pairs(ms) do ks[#ks+1] = v end
+   table.sort(ks)
+   cmp(ks, {"a", "b", "c"})
 end
 
     
+--[============[
 function test_Create_a_random_list_and_a_random_set()
         local tosort = {}
         array set seenrand {}
         for i=0,10000 do
             while 1 {
-                # Make sure all the weights are different because
-                # Redis does not use a stable sort but Tcl does.
+                -- Make sure all the weights are different because
+                -- Redis does not use a stable sort but Tcl does.
                 randpath {
                     local rint = [expr int(rand()*1000000)]
 --                } {
@@ -988,7 +1055,7 @@ function test_SORT_regression_for_issue_#19,_sorting_floats()
 end
 
 
-function test_SORT_with_GET_# {
+function test_SORT_with_GET_ns {
         R:del("mylist")
         R:lpush("mylist" 1)
         R:lpush("mylist" 2)
@@ -1085,8 +1152,8 @@ end
 
 
 function test_MGET_against_nonstring_key()
-        R:sadd(myset, "ciao")
-        R:sadd(myset, "bau")
+        R:sadd("myset", "ciao")
+        R:sadd("myset", "bau")
         R:mget(foo baazz bar, "myset")
 --    } {BAR {} FOO {}}
 end
@@ -1174,16 +1241,14 @@ end
 function test_SMOVE_wrong_src_key_type()
         R:set(x 10)
         local ok, err = R:smove(x myset2, "foo")
-        assert_match("ERR",, "err")
---    } {ERR*}
+        assert_false(ok)
 end
 
 
 function test_SMOVE_wrong_dst_key_type()
         R:set(x 10)
         local ok, err = R:smove(myset2 x, "foo")
-        assert_match("ERR",, "err")
---    } {ERR*}
+        assert_false(ok)
 end
 
 
@@ -1196,8 +1261,8 @@ end
 
 function test_MSET_wrong_number_of_args()
         local ok, err = R:mset(x 10 y "foo bar", "z")
-        assert_match("ERR",, "err")
---    } {*wrong number*}
+        assert_false(ok)
+        assert_match("wrong number", err)
 end
 
 
@@ -1314,7 +1379,7 @@ function test_ZSETs_stress_tester_-_sorting_is_working_well?()
                 end
                 local auxarray =($i) $score
                 R:zadd(myzset $score $i)
-                # Random update
+                -- Random update
                 if {[expr rand()] < .2} {
                     local j = [expr int(rand()*1000)]
                     if {$test == 0} {
@@ -1706,7 +1771,7 @@ function test_PIPELINING_stresser_(also_a_regression_for_the_old_epoll_bug)()
 
 end
 
-    # Leave the user with a clean DB before to exit
+    -- Leave the user with a clean DB before to exit
 function test_!FLUSHDB()
         local aux = {}
         R:select(9)

@@ -266,7 +266,8 @@ local formatter = {
           end,
    bulklist = function(array)
                  if type(array) ~= "table" then array = { array } end
-                 local ct, buf = #array, {}
+                 --for k,v in pairs(array) do print(k,v) end
+                 local buf = {}
                  for _,val in ipairs(array) do
                     --buf[#buf+1] = fmt("%d\r\n%s\r\n", val:len(), val)
                     buf[#buf+1] = val
@@ -317,6 +318,9 @@ local function gen_arg_hook(funcname, spec)
       end
    end
 
+   local bulk = formatter.bulklist
+   local bulk_keys = (fs[#fs] == bulk)
+
    local check = function(args)
          for i=1,#tts do
             if not tts[i](args[i]) then return false end
@@ -326,8 +330,15 @@ local function gen_arg_hook(funcname, spec)
 
    local format = function(t)
          local args = {}
-         for i,v in ipairs(t) do
-            args[i] = fs[i](v)
+
+         -- Convert arguments and check arity, but just
+         -- copy rest if it's a vararg ("K") function.
+         for i=1,#fs do
+            if fs[i] == bulk then
+               for rest=i,#t do args[rest] = tostring(t[rest]) end
+               break
+            end
+            args[i] = fs[i](t[i])
          end
          if #args < #fs then
             error("Not enough arguments")
@@ -414,7 +425,7 @@ cmd("SREM", "km", "srem", true)
 cmd("SPOP", "k", "spop")
 cmd("SMOVE", "kkm", "smove")
 cmd("SCARD", "k", "scard")
-cmd("SISMEMBER", "km", "sismember")
+cmd("SISMEMBER", "km", "sismember", true)
 cmd("SINTER", "K", "sinter")
 cmd("SINTERSTORE", "kK", "sinterstore")
 cmd("SUNION", "K", "sunion")
@@ -452,17 +463,23 @@ cmd("RELOAD", nil, "reload")
 -- Other commands
 
 ---Get server info.
-function Connection:info()
+function Connection:info(raw)
    local ok, res = self:sendrecv("INFO")
    if not ok then return false, res end
    trace("RECV:", res)
+
+   if not ok then
+      return false, res
+   elseif raw then
+      return res
+   end
 
    local t = {}
    for k,v in gmatch(res, "(.-):(.-)\r\n") do
       if v:match("^%d+$") then v = tonumber(v) end
       t[k] = v
    end
-   return true, t
+   return t
 end
 
 
