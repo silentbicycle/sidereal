@@ -18,6 +18,7 @@ local nonblocking, trace_nb = true, false
 
 
 module("tests", lunit.testcase, package.seeall)
+local fmt, floor, random = string.format, math.floor, math.random
 
 local do_slow, do_auth = true, false
 
