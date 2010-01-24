@@ -29,6 +29,8 @@
 -- * foundation for consistent hashing?
 -- * profile and tune
 -- * handle auto-reconnecting
+-- * better high-level handling of sets (as a { key=true } table
+-- * maybe create a simple proxy object w/ __index and __newindex
 ------------------------------------------------------------------------
 
 
@@ -108,7 +110,7 @@ function Connection:send(cmd)
    while true do
       local ok, err = self._socket:send(cmd .. "\r\n")
       if ok then
-         trace("SEND:", cmd)
+         trace("SEND(only):", cmd)
          return true
       elseif err ~= "timeout" then return false, err
       else
@@ -275,8 +277,11 @@ local formatter = {
                  return concat(array, " ")
               end,
    table = function(t)
+              print("TABLE FORMATTER")
               local buf = {}
-              for k,v in pairs(t) do buf[#buf+1] = fmt("%s %s", k, v) end
+              for k,v in pairs(t) do
+                 return fmt("%s %d\r\n%s\r\n", k, v:len(), v)
+              end
               return concat(buf, " ")
            end
 }
@@ -383,7 +388,7 @@ cmd("GET", "k", "get")
 cmd("GETSET", "kv", "getset")
 cmd("MGET", "K", "mget")
 cmd("SETNX", "kv", "setnx", true)
-cmd("MSET", "T", "mset")        --FIXME
+cmd("MSET", "T", "mset")
 cmd("MSETNX", "T", "msetnx", true)
 cmd("INCR", "k", "incr")
 cmd("INCRBY", "ki", "incrby")

@@ -971,7 +971,7 @@ end
 
     
 --[============[
-
+TODO SORTING COMMANDS
 function test_Create_a_random_list_and_a_random_set()
    local tosort = {}
    local seenrand = {}
@@ -1099,220 +1099,239 @@ function test_SORT_with_constant_GET()
 end
 
 
-function test_LREM,_remove_all_the_occurrences()
-        R:flushdb()
-        $r rpush "mylist" foo
-        R:rpush("mylist", "bar")
-        R:rpush("mylist", "foobar")
-        R:rpush("mylist", "foobared")
-        R:rpush("mylist", "zap")
-        R:rpush("mylist", "bar")
-        R:rpush("mylist", "test")
-        R:rpush("mylist", "foo")
-        local res = R:lrem("mylist" 0, "bar")
-        list R:lrange("mylist" 0, -1) $res
---    } {{foo foobar foobared zap test foo} 2}
+--]============]
+
+local function lrem_setup()
+   for _,v in ipairs{"foo", "bar", "foobar", "foobared",
+                     "zap", "bar", "test", "foo" } do
+      R:rpush("mylist", v)
+   end
+end
+
+function test_LREM_remove_all_the_occurrences()
+   lrem_setup()
+   assert_equal(2, R:lrem("mylist", 0, "bar"))
+   cmp(R:lrange("mylist", 0, -1),
+       {"foo", "foobar", "foobared", "zap", "test", "foo"})
+end
+
+function test_LREM_remove_the_first_occurrence()
+   lrem_setup()
+   assert_equal(2, R:lrem("mylist", 0, "bar"))
+   cmp(R:lrange("mylist", 0, -1),
+       {"foo", "foobar", "foobared", "zap", "test", "foo",})
+   
+   assert_equal(1, R:lrem("mylist", 1, "foo"))
+   cmp(R:lrange("mylist", 0, -1),
+       {"foobar", "foobared", "zap", "test", "foo"})
 end
 
 
-function test_LREM,_remove_the_first_occurrence()
-        local res = R:lrem("mylist" 1, "foo")
-        list R:lrange("mylist" 0, -1) $res
---    } {{foobar foobared zap test foo} 1}
+function test_LREM_remove_non_existing_element()
+   lrem_setup()
+   assert_equal(1, R:lrem("mylist", 1, "foo"))
+   assert_equal(2, R:lrem("mylist", 0, "bar"))
+   assert_equal(0, R:lrem("mylist", 1, "nosuchelement"))
+   cmp(R:lrange("mylist", 0, -1),
+       {"foobar", "foobared", "zap", "test", "foo"})
 end
 
 
-function test_LREM,_remove_non_existing_element()
-        local res = R:lrem("mylist" 1, "nosuchelement")
-        list R:lrange("mylist" 0, -1) $res
---    } {{foobar foobared zap test foo} 0}
+local function lrem_setup2()
+   for _,v in ipairs{"foo", "bar", "foobar", "foobared",
+                     "zap", "bar", "test", "foo", "foo" } do
+      R:rpush("mylist", v)
+   end
+end
+
+function test_LREM_starting_from_tail_with_negative_count()
+   lrem_setup2()
+   assert_equal(1, R:lrem("mylist", -1, "bar"))
+   cmp(R:lrange("mylist", 0, -1),
+       {"foo", "bar", "foobar", "foobared", "zap", "test", "foo", "foo"})
 end
 
 
-function test_LREM,_starting_from_tail_with_negative_count()
-        R:flushdb()
-        R:rpush("mylist", "foo")
-        R:rpush("mylist", "bar")
-        R:rpush("mylist", "foobar")
-        R:rpush("mylist", "foobared")
-        R:rpush("mylist", "zap")
-        R:rpush("mylist", "bar")
-        R:rpush("mylist", "test")
-        R:rpush("mylist", "foo")
-        R:rpush("mylist", "foo")
-        local res = R:lrem("mylist" -1, "bar")
-        list R:lrange("mylist" 0, -1) $res
---    } {{foo bar foobar foobared zap test foo foo} 1}
+function test_LREM_starting_from_tail_with_negative_count_2()
+   lrem_setup2()
+   assert_equal(1, R:lrem("mylist", -1, "bar"))
+   assert_equal(2, R:lrem("mylist", -2, "foo"))
+   cmp(R:lrange("mylist", 0, -1),
+       {"foo", "bar", "foobar", "foobared", "zap", "test"})
 end
 
 
-function test_LREM,_starting_from_tail_with_negative_count_(2)()
-        local res = R:lrem("mylist" -2, "foo")
-        list R:lrange("mylist" 0, -1) $res
---    } {{foo bar foobar foobared zap test} 2}
+function test_LREM_deleting_objects_that_may_be_encoded_as_integers()
+   R:lpush("myotherlist", 1)
+   R:lpush("myotherlist", 2)
+   R:lpush("myotherlist", 3)
+   R:lrem("myotherlist", 1, 2)
+   assert_equal(2, R:llen("myotherlist"))
 end
 
 
-function test_LREM,_deleting_objects_that_may_be_encoded_as_integers()
-        R:lpush(myotherlist 1)
-        R:lpush(myotherlist 2)
-        R:lpush(myotherlist 3)
-        R:lrem(myotherlist 1 2)
-        R:llen(myotherlist)
---    } {2}
-end
-
-
-function test_!MGET()
-        R:flushdb()
-        R:set(foo, "BAR")
-        R:set(bar, "FOO")
-        R:mget(foo, "bar")
---    } {BAR FOO}
+function test_MGET()
+   R:set("foo", "BAR")
+   R:set("bar", "FOO")
+   cmp(R:mget("foo", "bar"), {"BAR", "FOO"})
 end
 
 
 function test_MGET_against_non_existing_key()
-        R:mget(foo baazz, "bar")
---    } {BAR {} FOO}
+   R:set("foo", "BAR")
+   R:set("bar", "FOO")
+   
+   cmp(R:mget("foo", "baazz", "bar"),
+       {"BAR", NULL, "FOO"})
 end
 
 
 function test_MGET_against_nonstring_key()
-        R:sadd("myset", "ciao")
-        R:sadd("myset", "bau")
-        R:mget(foo baazz bar, "myset")
---    } {BAR {} FOO {}}
+   R:set("foo", "BAR")
+   R:set("bar", "FOO")
+   R:sadd("myset", "ciao")
+   R:sadd("myset", "bau")
+   cmp(R:mget("foo", "baazz", "bar", "myset"),
+       {"BAR", NULL, "FOO", NULL})
 end
 
 
-function test_!RANDOMKEY()
-        R:flushdb()
-        R:set(foo, "x")
-        R:set(bar, "y")
-        local foo =_seen 0
-        local bar =_seen 0
-        for i=0,100 do
-            local rkey = R:randomkey()
-            if R:ey(eq {foo)} {
-                local foo =_seen 1
-            end
-            if R:ey(eq {bar)} {
-                local bar =_seen 1
-            end
-        end
-        list $foo_seen $bar_seen
---    } {1 1}
+function test_RANDOMKEY()
+   R:set("foo", "x")
+   R:set("bar", "y")
+   local foo_seen, bar_seen
+   for i=0,99 do
+      local rkey = R:randomkey()
+      if rkey == "foo" then foo_seen = true end
+      if rkey == "bar" then bar_seen = true end
+   end
+   assert(foo_seen and bar_seen)
 end
 
 
 function test_RANDOMKEY_against_empty_DB()
-        R:flushdb()
---        R:randomkey(    } {})
+   R:flushdb()
+   assert_equal("", R:randomkey())
 end
 
 
 function test_RANDOMKEY_regression_1()
-        R:flushdb()
-        R:set(x 10)
-        R:del(x)
-        R:randomkey()
---    } {}
+   R:flushdb()
+   R:set("x", 10)
+   R:del("x")
+   assert_equal("", R:randomkey())
 end
 
 
-function test_GETSET_(set_new_value)()
-        list R:getset(foo, "xyz") R:get(foo)
---    } {{} xyz}
+function test_GETSET_set_new_value()
+   assert_equal(NULL, R:getset("foo", "xyz"))
+   assert_equal("xyz", R:get("foo"))
 end
 
 
-function test_GETSET_(replace_old_value)()
-        R:set(foo, "bar")
-        list R:getset(foo, "xyz") R:get(foo)
---    } {bar xyz}
+function test_GETSET_replace_old_value()
+   R:set("foo", "bar")
+   assert_equal("bar", R:getset("foo", "xyz"))
+   assert_equal("xyz", R:get("foo"))
+end
+
+
+local function smove_init()
+   R:sadd("myset1", "a")
+   R:sadd("myset1", "b")
+   R:sadd("myset1", "c")
+   R:sadd("myset2", "x")
+   R:sadd("myset2", "y")
+   R:sadd("myset2", "z")
 end
 
 
 function test_SMOVE_basics()
-        R:sadd(myset1, "a")
-        R:sadd(myset1, "b")
-        R:sadd(myset1, "c")
-        R:sadd(myset2, "x")
-        R:sadd(myset2, "y")
-        R:sadd(myset2, "z")
-        R:smove(myset1 myset2, "a")
-        list [lsort R:smembers(myset2)] [lsort R:smembers(myset1)]
---    } {{a x y z} {b c}}
+   smove_init()
+   R:smove("myset1", "myset2", "a")
+   cmp({"a", "x", "y", "z"}, lsort(R:smembers("myset2")))
+   cmp({"b", "c"}, lsort(R:smembers("myset1")))
 end
 
 
 function test_SMOVE_non_existing_key()
-        list R:smove(myset1 myset2, "foo") [lsort R:smembers(myset2)] [lsort R:smembers(myset1)]
---    } {0 {a x y z} {b c}}
+   smove_init()
+   R:smove("myset1", "myset2", "a")
+   assert_equal(0, R:smove("myset1", "myset2", "foo"))
+   cmp({"a", "x", "y", "z"}, lsort(R:smembers("myset2")))
+   cmp({"b", "c"}, lsort(R:smembers("myset1")))
 end
 
 
 function test_SMOVE_non_existing_src_set()
-        list R:smove(noset myset2, "foo") [lsort R:smembers(myset2)]
---    } {0 {a x y z}}
+   smove_init()
+   R:smove("myset1", "myset2", "a")
+   R:smove("myset1", "myset2", "foo")
+   assert_equal(0, R:smove("noset", "myset2", "foo"))
+   cmp({"a", "x", "y", "z"}, lsort(R:smembers("myset2")))
 end
 
 
 function test_SMOVE_non_existing_dst_set()
-        list R:smove(myset2 myset3, "y") [lsort R:smembers(myset2)] [lsort R:smembers(myset3)]
---    } {1 {a x z} y}
+   smove_init()
+   R:smove("myset1", "myset2", "a")
+   R:smove("myset1", "myset2", "foo")
+   assert_equal(1, R:smove("myset2", "myset3", "y"))
+   cmp({"a", "x", "z"}, lsort(R:smembers("myset2")))
+   cmp({"y"}, lsort(R:smembers("myset3")))
 end
 
 
 function test_SMOVE_wrong_src_key_type()
-        R:set(x 10)
-        local ok, err = R:smove(x myset2, "foo")
-        assert_false(ok)
+   smove_init()
+   R:set("x", 10)
+   local ok, err = R:smove("x", "myset2", "foo")
+   assert_false(ok)
 end
 
 
 function test_SMOVE_wrong_dst_key_type()
-        R:set(x 10)
-        local ok, err = R:smove(myset2 x, "foo")
-        assert_false(ok)
+   smove_init()
+   R:set("x", 10)
+   local ok, err = R:smove("myset2", "x", "foo")
+   assert_false(ok)
 end
 
 
+-- BROKEN. Fix MST table arg handling.
 function test_MSET_base_case()
-        R:mset(x 10 y "foo bar" z "x x x x x x x\n\n\r\n")
-        R:mget(x y, "z")
-    } [list 10 {foo bar} "x x x x x x x\n\n\r\n"]
+   dbg()
+   R:mset{ x=10, y="foo bar", z="x x x x x x x\n\n\r\n" }
+   undbg()
+   cmp(R:mget("x", "y", "z"),
+       {10, "foo bar", "x x x x x x x\n\n\r\n"})
 end
 
 
-function test_MSET_wrong_number_of_args()
-        local ok, err = R:mset(x 10 y "foo bar", "z")
-        assert_false(ok)
-        assert_match("wrong number", err)
-end
-
+--[============[ 
 
 function test_MSETNX_with_already_existent_key()
-        list R:msetnx(x1 xxx y2 yyy x 20) R:exists(x1) R:exists(y2)
---    } {0 0 0}
+   R:set("x", 20)
+   assert_equal(0, R:msetnx{x1="xxx", y2="yyy", x=20})
+   assert_false(R:exists("x1"))
+   assert_false(R:exists("x2"))
 end
 
 
 function test_MSETNX_with_not_existing_keys()
-        list R:msetnx(x1 xxx y2, "yyy") R:get(x1) R:get(y2)
---    } {1 xxx yyy}
+   assert_equal(1, R:msetnx{ x1="xxx", y2="yyy" })
+   assert_equal("xxx", R:get("x1"))
+   assert_equal("yyy", R:get("y2"))
 end
 
 
 function test_MSETNX_should_remove_all_the_volatile_keys_even_on_failure()
-        R:mset(x 1 y 2 z 3)
-        R:expire(y 10000)
-        R:expire(z 10000)
-        list R:msetnx(x A y B z, "C") R:mget(x y, "z")
---    } {0 {1 {} {}}}
+   R:mset{ x=1, y=2, z=3 }
+   R:expire("y", 10000)
+   R:expire("z", 10000)
+   assert_equal(0, R:msetnx{ x="A", y="B", z="C"})
+   cmp(R:mget("x", "y", "z"), {1, NULL, NULL})
 end
-
 
 function test_ZSET_basic_ZADD_and_score_update()
         R:zadd(ztmp 10, "x")
@@ -1338,7 +1357,7 @@ function test_ZCARD_non_existing_key()
 end
 
 
-function test_!ZSCORE()
+function test_ZSCORE()
         local aux = {}
         local err = {}
         for i=0,1000 do
@@ -1391,7 +1410,7 @@ function test_ZRANGE_WITHSCORES()
 end
 
 
-function test_ZSETs_stress_tester_-_sorting_is_working_well?()
+function test_ZSETs_stress_tester_is_sorting_is_working_well()
         local delta = 0
         for test=0,2 do
             unset -nocomplain auxarray
@@ -1439,7 +1458,7 @@ function test_ZSETs_stress_tester_-_sorting_is_working_well?()
 end
 
 
-function test_ZINCRBY_-_can_create_a_new_sorted_set()
+function test_ZINCRBY_can_create_a_new_sorted_set()
         R:del(zset)
         R:zincrby(zset 1, "foo")
         list R:zrange(zset 0, -1) R:zscore(zset, "foo")
@@ -1447,7 +1466,7 @@ function test_ZINCRBY_-_can_create_a_new_sorted_set()
 end
 
 
-function test_ZINCRBY_-_increment_and_decrement()
+function test_ZINCRBY_increment_and_decrement()
         R:zincrby(zset 2, "foo")
         R:zincrby(zset 1, "bar")
         local v1 = [R:zrange(zset 0 -1])
@@ -1472,7 +1491,7 @@ function test_ZRANGEBYSCORE_basics()
 end
 
 
-function test_ZRANGEBYSCORE_fuzzy_test,_100_ranges_in_1000_elements_sorted_set()
+function test_ZRANGEBYSCORE_fuzzy_test_100_ranges_in_1000_elements_sorted_set()
         local err = {}
         $r del zset
         for i=0,1000 do
@@ -1541,7 +1560,7 @@ function test_ZREMRANGE_basics()
 end
 
 
-function test_ZREMRANGE_from_-inf_to_+inf()
+function test_ZREMRANGE_from_neginf_to_posinf()
         R:del(zset)
         R:zadd(zset 1, "a")
         R:zadd(zset 2, "b")
@@ -1565,7 +1584,7 @@ function test_SORT_against_sorted_sets()
 end
 
 
-function test_Sorted_sets_+inf_and_-inf_handling()
+function test_Sorted_sets_posinf_and_neginf_handling()
         R:del(zset)
         R:zadd(zset -100, "a")
         R:zadd(zset 200, "b")
@@ -1578,44 +1597,44 @@ function test_Sorted_sets_+inf_and_-inf_handling()
 end
 
 
-function test_EXPIRE_-_don't_set_timeouts_multiple_times()
+function test_EXPIRE_do_not_set_timeouts_multiple_times()
         R:set(x, "foobar")
-        local v1 = R:expire(x 5)
+        local v1 = R:expire("x", 5)
         local v2 = R:ttl(x)
-        local v3 = R:expire(x 10)
+        local v3 = R:expire("x", 10)
         local v4 = R:ttl(x)
         list $v1 $v2 $v3 $v4
 --    } {1 5 0 5}
 end
 
 
-function test_EXPIRE_-_It_should_be_still_possible_to_read_'x'()
+function test_EXPIRE___It_should_be_still_possible_to_read_x()
         R:get(x)
 --    } {foobar}
 end
 
 
-function test_EXPIRE_-_After_6_seconds_the_key_should_no_longer_be_here()
+function test_EXPIRE_After_6_seconds_the_key_should_no_longer_be_here()
         after 6000
         list R:get(x) R:exists(x)
 --    } {{} 0}
 end
 
 
-function test_EXPIRE_-_Delete_on_write_policy()
+function test_EXPIRE_Delete_on_write_policy()
         R:del(x)
         R:lpush(x, "foo")
-        R:expire(x 1000)
+        R:expire("x", 1000)
         R:lpush(x, "bar")
-        R:lrange(x 0, -1)
+        R:lrange("x", 0, -1)
 --    } {bar}
 end
 
 
-function test_EXPIREAT_-_Check_for_EXPIRE_alike_behavior()
+function test_EXPIREAT_Check_for_EXPIRE_alike_behavior()
         R:del(x)
         R:set(x, "foo")
-        R:expireat(x [expr [clock seconds]+15])
+        R:expireat("x", [expr [clock seconds]+15])
         R:ttl(x)
 --    } {1[345]}
 end
@@ -1656,10 +1675,10 @@ function test_ZSETs_skiplist_implementation_backlink_consistency_test()
 end
 
 
-function test_!BGSAVE()
+function test_BGSAVE()
         R:flushdb()
         R:save()
-        R:set(x 10)
+        R:set("x", 10)
         R:bgsave()
         waitForBgsave $r
         R:debug(reload)
@@ -1714,7 +1733,7 @@ end
 
 
 function test_Generic_wrong_number_of_args()
-        local ok, err = R:ping(x y, "z")
+        local ok, err = R:ping("x", y, "z")
         local _ $err =
 --    } {*wrong*arguments*ping*}
 end
@@ -1739,7 +1758,7 @@ end
 end
 
 
-    function test_Same_dataset_digest_if_saving/reloading_as_AOF?()
+    function test_If_same_dataset_digest_if_saving_reloading_as_AOF()
             R:bgrewriteaof()
             waitForBgrewriteaof $r
             R:debug(loadaof)
@@ -1750,10 +1769,10 @@ end
 end
 
 
-function test_EXPIRES_after_a_reload_(snapshot_+_append_only_file)()
+function test_EXPIRES_after_a_reload_with_snapshot_and_append_only_file()
         R:flushdb()
-        R:set(x 10)
-        R:expire(x 1000)
+        R:set("x", 10)
+        R:expire("x", 1000)
         R:save()
         R:debug(reload)
         local ttl = R:ttl(x)
@@ -1767,7 +1786,7 @@ function test_EXPIRES_after_a_reload_(snapshot_+_append_only_file)()
 end
 
 
-function test_PIPELINING_stresser_(also_a_regression_for_the_old_epoll_bug)()
+function test_PIPELINING_stresser_also_a_regression_for_the_old_epoll_bug()
         local fd2 = [socket 127.0.0.1 6379]
         fconfigure $fd2 -encoding binary -translation binary
         puts -nonewline $fd2 "SELECT 9\r\n"
