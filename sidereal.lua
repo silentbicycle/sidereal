@@ -464,7 +464,15 @@ cmd("ZADD", "kfm", "Add the specified member to the Sorted Set value at key or u
 cmd("ZREM", "km", "Remove the specified member from the Sorted Set value at key")
 cmd("ZINCRBY", "kim", "If the member already exists increment its score by _increment_, otherwise add the member setting _increment_ as score")
 cmd("ZREVRANGE", "kse", "Return a range of elements from the sorted set at key, exactly like ZRANGE, but the sorted set is ordered in traversed in reverse order, from the greatest to the smallest score")
-cmd("ZRANGEBYSCORE", "kff", "Return all the elements with score >= min and score <= max (a range query) from the sorted set")
+cmd("ZRANGEBYSCORE", "kff", "Return all the elements with score >= min and score <= max (a range query) from the sorted set",
+    { pre_hook=function(raw_args, msg)
+                  local to, from = raw_args[3], raw_args[4]
+                  if to and from then
+                     to, from = tonumber(to), tonumber(from)
+                     msg = msg .. fmt(" LIMIT %d %d", to, from)
+                  end
+                  return msg
+               end})
 cmd("ZCARD", "k", "Return the cardinality (number of elements) of the sorted set at key")
 cmd("ZSCORE", "kv", "Return the score associated with the specified element of the sorted set at key")
 cmd("ZREMRANGEBYSCORE", "kff", "Remove all the elements with score >= min and score <= max from the sorted set")
@@ -527,5 +535,5 @@ function Connection:sort(key, t)
    if alpha then b[#b+1] = "ALPHA" end
    if dstkey then b[#b+1] = fmt("STORE %s", dstkey) end
    
-   return self:sendrecv(send, result_handler) 
+   return self:sendrecv(concat(b, " "), result_handler) 
 end
