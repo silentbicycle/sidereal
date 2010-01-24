@@ -349,8 +349,8 @@ local function cmd(rfun, arg_types, name, opts)
 
    Connection[name] = 
       function(self, ...) 
-         local send
-         local arglist, err = format_args({...})
+         local raw_args, send = {...}
+         local arglist, err = format_args(raw_args)
          if bulk_send then
             local b = {}
             arglist = arglist[1]
@@ -366,8 +366,14 @@ local function cmd(rfun, arg_types, name, opts)
             send = fmt("%s %s", rfun, concat(arglist, " "))
          end
 
+         if opts.prehook then send = opts.prehook(raw_args, send) end
          local ok, res = self:sendrecv(send, opts.to_bool)
-         if ok then return res else return false, res end
+         if ok then
+            if opts.posthook then return opts.posthook(raw_args, res) end
+            return res
+         else
+            return false, res
+         end
       end
 end
 
@@ -442,12 +448,17 @@ cmd("SRANDMEMBER", "k", "srandmember")
 cmd("ZADD", "kfm", "zadd")
 cmd("ZREM", "km", "zrem")
 cmd("ZINCRBY", "kim", "zincrby")
-cmd("ZRANGE", "kse", "zrange")  --FIXME, "withscores" option
 cmd("ZREVRANGE", "kse", "zrevrange")
 cmd("ZRANGEBYSCORE", "kff", "zrangebyscore") --FIXME
 cmd("ZCARD", "k", "zcard")
 cmd("ZSCORE", "kv", "zscore")
 cmd("ZREMRANGEBYSCORE", "kff", "zremrangebyscore")
+cmd("ZRANGE", "kse", "zrange",
+    { prehook=function(raw_args, msg)
+                 if raw_args[4] then
+                    return msg .. " withscores"
+                 else return msg end
+              end })
 
 -- Persistence control commands
 cmd("SAVE", nil, "save")
@@ -462,21 +473,18 @@ cmd("PING", nil, "ping")
 cmd("DEBUG", nil, "debug")
 cmd("RELOAD", nil, "reload")
 
-
----Get server info. Return table of info, or unparsed string if raw.
-function Connection:info(raw)
-   local ok, res = self:sendrecv("INFO")
-   if not ok then return false, res end
-   trace("RECV:", res)
-   if raw then return res end
-
-   local t = {}
-   for k,v in gmatch(res, "(.-):(.-)\r\n") do
-      if v:match("^%d+$") then v = tonumber(v) end
-      t[k] = v
-   end
-   return t
-end
+---Get server info. Return table of info, or raw string w/ arg of true.
+cmd("INFO", nil, "info",
+    { posthook =
+      function(raw_args, res)
+         if raw_args[1] then return res end --"raw" flag
+         local t = {}
+         for k,v in gmatch(res, "(.-):(.-)\r\n") do
+            if v:match("^%d+$") then v = tonumber(v) end
+            t[k] = v
+         end
+         return t
+      end })
 
 
 ---Get an iterator for keys matching a pattern.
