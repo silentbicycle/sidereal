@@ -443,10 +443,10 @@ cmd("ZADD", "kfm", "zadd")
 cmd("ZREM", "km", "zrem")
 cmd("ZINCRBY", "kim", "zincrby")
 cmd("ZRANGE", "kse", "zrange")  --FIXME, "withscores" option
-cmd("ZREVRANGE", "kse", "zrevrange") --FIXME
+cmd("ZREVRANGE", "kse", "zrevrange")
 cmd("ZRANGEBYSCORE", "kff", "zrangebyscore") --FIXME
 cmd("ZCARD", "k", "zcard")
-cmd("ZSCORE", "kk", "zscore")   --FIXME
+cmd("ZSCORE", "kv", "zscore")
 cmd("ZREMRANGEBYSCORE", "kff", "zremrangebyscore")
 
 -- Persistence control commands

@@ -1297,15 +1297,16 @@ function test_SMOVE_wrong_dst_key_type()
 end
 
 
-local function mset_init()
+function mset_init()
    assert_equal("OK", R:mset{ x=10, y="foo bar",
                               z="x x x x x x x\n\n\r\n" })
 end
 
-local function test_MSET_base_case()
+
+function test_MSET_base_case()
    mset_init()
    cmp(R:mget("x", "y", "z"),
-       {10, "foo bar", "x x x x x x x\n\n\r\n"})
+       {"10", "foo bar", "x x x x x x x\n\n\r\n"})
 end
 
 
@@ -1319,8 +1320,7 @@ end
 
 
 function test_MSETNX_with_not_existing_keys()
---    assert_true(R:msetnx { x1="xxx", y2="yyy" })
-   R:msetnx{ x1="xxx", y2="yyy" }
+   assert_true(R:msetnx { x1="xxx", y2="yyy" })
 
    local res, err = R:get("x1")
    assert(res, err)
@@ -1338,84 +1338,79 @@ function test_MSETNX_should_remove_all_the_volatile_keys_even_on_failure()
 end
 
 
---[============[ 
+local function z_init()
+   R:zadd("ztmp", 10, "x")
+   R:zadd("ztmp", 20, "y")
+   R:zadd("ztmp", 30, "z")
+end
+
+
 function test_ZSET_basic_ZADD_and_score_update()
-        R:zadd(ztmp 10, "x")
-        R:zadd(ztmp 20, "y")
-        R:zadd(ztmp 30, "z")
-        local aux1 = R:zrange(ztmp 0, -1)
-        R:zadd(ztmp 1, "y")
-        local aux2 = R:zrange(ztmp 0, -1)
-        list $aux1 $aux2
---    } {{x y z} {y x z}}
+   z_init()
+   local aux1 = R:zrange("ztmp", 0, -1)
+   R:zadd("ztmp", 1, "y")
+   local aux2 = R:zrange("ztmp", 0, -1)
+   cmp(aux1, {"x", "y", "z"})
+   cmp(aux2, {"y", "x", "z"})
 end
 
 
 function test_ZCARD_basics()
-        R:zcard(ztmp)
---    } {3}
+   z_init()
+   assert_equal(3, R:zcard("ztmp"))
 end
 
 
 function test_ZCARD_non_existing_key()
-        R:zcard(ztmp-blabla)
---    } {0}
+   assert_equal(0, R:zcard("ztmp-blabla"))
 end
 
 
-function test_ZSCORE()
-        local aux = {}
-        local err = {}
-        for i=0,1000 do
-            local score = [expr rand()]
-            lappend aux $score
-            R:zadd(zscoretest $score $i)
-        end
-        for i=0,1000 do
-            if {R:zscore(zscoretest $i) != [lindex $aux $i]} {
-                local err = "Expected score was [lindex $aux $i] but got R:zscore(zscoretest $i) for element $i"
-                break
-            end
-        end
-        local _ $err =
---    } {}
+local function t_zscore(debug)
+   local aux, err, lim, digits = {}, nil, 1000, 6
+   for key=1,lim do
+      local score = math.random()
+      aux[#aux+1] = score
+      assert(R:zadd("zscoretest", score, key))
+   end
+
+   if debug then
+      R:debug()
+      R:reload()
+   end
+   for key=1,lim do
+      -- round the double string, floats are lossy
+      local s = assert(R:zscore("zscoretest", key)):sub(1, digits)
+      assert_equal(tostring(aux[key]):sub(1, digits), s,
+                   string.format("Expected %f but got %f for element %d",
+                                 aux[key], s, key))
+   end
 end
 
 
-function test_ZSCORE_after_a_DEBUG_RELOAD()
-        local aux = {}
-        local err = {}
-        R:del(zscoretest)
-        for i=0,1000 do
-            local score = [expr rand()]
-            lappend aux $score
-            R:zadd(zscoretest $score $i)
-        end
-        $r debug reload
-        for i=0,1000 do
-            if {R:zscore(zscoretest $i) != [lindex $aux $i]} {
-                local err = "Expected score was [lindex $aux $i] but got R:zscore(zscoretest $i) for element $i"
-                break
-            end
-        end
-        local _ $err =
---    } {}
-end
+function test_ZSCORE() t_zscore(false) end
+function test_ZSCORE_after_a_DEBUG_RELOAD() t_zscore(true) end
 
 
 function test_ZRANGE_and_ZREVRANGE_basics()
-        list R:zrange(ztmp 0, -1) R:zrevrange(ztmp 0, -1) \
-            R:zrange(ztmp 1, -1) R:zrevrange(ztmp 1, -1)
---    } {{y x z} {z x y} {x z} {x y}}
+   z_init()
+   R:zadd("ztmp", 1, "y")
+   cmp(R:zrange("ztmp", 0, -1), {"y", "x", "z"})
+   cmp(R:zrevrange("ztmp", 0, -1), {"z", "x", "y"})
+   cmp(R:zrange("ztmp", 1, -1), {"x", "z"})
+   cmp(R:zrevrange("ztmp", 1, -1), {"x", "y"})
 end
 
 
 function test_ZRANGE_WITHSCORES()
-        R:zrange(ztmp 0 -1, "withscores")
---    } {y 1 x 10 z 30}
+   z_init()
+   R:zadd("ztmp", 1, "y")
+   cmp(R:zrange("ztmp", 0, -1, "withscores"),
+       {"y", "1", "x", "10", "z", "30"})
 end
 
 
+--[============[ 
 function test_ZSETs_stress_tester_is_sorting_is_working_well()
         local delta = 0
         for test=0,2 do
