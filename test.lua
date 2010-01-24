@@ -969,8 +969,8 @@ local function test_SRANDMEMBER() -- FIXME
 end
 
     
+print "TODO: SORTING COMMANDS"
 --[============[
-TODO SORTING COMMANDS
 function test_Create_a_random_list_and_a_random_set()
    local tosort = {}
    local seenrand = {}

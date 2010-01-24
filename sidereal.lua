@@ -341,7 +341,7 @@ end
 
 
 -- Register a command.
-local function cmd(rfun, arg_types, opts) 
+local function cmd(rfun, arg_types, doc, opts) 
    opts = opts or {}
    local name = rfun:lower()
    arg_types = arg_types or ""
@@ -351,6 +351,7 @@ local function cmd(rfun, arg_types, opts)
    Connection[name] = 
       function(self, ...) 
          local raw_args, send = {...}
+         if opts.arg_hook then raw_args = arg_hook(raw_args) end
          local arglist, err = format_args(raw_args)
          if bulk_send then
             local b = {}
@@ -367,10 +368,10 @@ local function cmd(rfun, arg_types, opts)
             send = fmt("%s %s", rfun, concat(arglist, " "))
          end
 
-         if opts.prehook then send = opts.prehook(raw_args, send) end
+         if opts.pre_hook then send = opts.pre_hook(raw_args, send) end
          local ok, res = self:sendrecv(send, opts.to_bool)
          if ok then
-            if opts.posthook then return opts.posthook(raw_args, res) end
+            if opts.post_hook then return opts.post_hook(raw_args, res) end
             return res
          else
             return false, res
@@ -384,99 +385,106 @@ end
 --------------
 
 -- Connection handling
-cmd("QUIT", nil)
-cmd("AUTH", "k")
+cmd("QUIT", nil, "Close the connection")
+cmd("AUTH", "k", "Simple password authentication if enabled")
 
 -- Commands operating on all the kind of values
-cmd("EXISTS", "k", { to_bool=true })
-cmd("DEL", "K")
-cmd("TYPE", "k")
-cmd("RANDOMKEY", nil)
-cmd("RENAME", "kk")
-cmd("RENAMENX", "kk")
-cmd("DBSIZE", nil)
-cmd("EXPIRE", "kt")
-cmd("EXPIREAT", "kt")
-cmd("TTL", "k")
-cmd("SELECT", "d")
-cmd("MOVE", "kd", { to_bool=true })
-cmd("FLUSHDB", nil)
-cmd("FLUSHALL", nil)
+cmd("EXISTS", "k", "Test if a key exists", { to_bool=true })
+cmd("DEL", "K", "Delete a key")
+cmd("TYPE", "k", "Return the type of the value stored at key")
+cmd("KEYS", "p", "Return an iterator listing all keys matching a given pattern",
+    { post_hook =
+      function(raw_args, res)
+         if raw_args[2] then return res end
+         return string.gmatch(res, "([^ ]+)")
+      end})
+cmd("RANDOMKEY", nil, "Return a random key from the key space")
+cmd("RENAME", "kk", "Rename the old key in the new one, destroing the newname key if it already exists")
+cmd("RENAMENX", "kk", "Rename the old key in the new one, if the newname key does not already exist")
+cmd("DBSIZE", nil, "Return the number of keys in the current db")
+cmd("EXPIRE", "kt", "Set a time to live in seconds on a key")   --???
+cmd("EXPIREAT", "kt", "Set a time to live in seconds on a key") --???
+cmd("TTL", "k", "Get the time to live in seconds of a key")
+cmd("SELECT", "d", "Select the DB having the specified index")
+cmd("MOVE", "kd", "Move the key from the currently selected DB to the DB having as index dbindex",
+    { to_bool=true })
+cmd("FLUSHDB", nil, "Remove all the keys of the currently selected DB")
+cmd("FLUSHALL", nil, "Remove all the keys from all the databases")
 
 --Commands operating on string values
-cmd("SET", "kv")
-cmd("GET", "k")
-cmd("GETSET", "kv")
-cmd("MGET", "K")
-cmd("SETNX", "kv", { to_bool=true })
-cmd("MSET", "T", { to_bool=true })
-cmd("MSETNX", "T", { to_bool=true })
-cmd("INCR", "k")
-cmd("INCRBY", "ki")
-cmd("DECR", "k")
-cmd("DECRBY", "ki")
+cmd("SET", "kv", "Set a key to a string value")
+cmd("GET", "k", "Return the string value of the key")
+cmd("GETSET", "kv", "Set a key to a string returning the old value of the key")
+cmd("MGET", "K", "Multi-get, return the strings values of the keys")
+cmd("SETNX", "kv", "Set a key to a string value if the key does not exist", { to_bool=true })
+cmd("MSET", "T", "Set a multiple keys to multiple values in a single atomic operation",
+    { to_bool=true })
+cmd("MSETNX", "T", "Set a multiple keys to multiple values in a single atomic operation if none of the keys already exist",
+    { to_bool=true })
+cmd("INCR", "k", "Increment the integer value of key")
+cmd("INCRBY", "ki", "Increment the integer value of key by integer")
+cmd("DECR", "k", "Decrement the integer value of key")
+cmd("DECRBY", "ki", "Decrement the integer value of key by integer")
 
 -- Commands operating on lists
-cmd("RPUSH", "kv")
-cmd("LPUSH", "kv")
-cmd("LLEN", "k")
-cmd("LRANGE", "kse")
-cmd("LTRIM", "kse")
-cmd("LINDEX", "ki")
-cmd("LSET", "kiv")
-cmd("LREM", "kiv")
-cmd("LPOP", "k")
-cmd("RPOP", "k")
-cmd("RPOPLPUSH", "kv")
+cmd("RPUSH", "kv", "Append an element to the tail of the List value at key")
+cmd("LPUSH", "kv", "Append an element to the head of the List value at key")
+cmd("LLEN", "k", "Return the length of the List value at key")
+cmd("LRANGE", "kse", "Return a range of elements from the List at key")
+cmd("LTRIM", "kse", "Trim the list at key to the specified range of elements")
+cmd("LINDEX", "ki", "Return the element at index position from the List at key")
+cmd("LSET", "kiv", "Set a new value as the element at index position of the List at key")
+cmd("LREM", "kiv", "Remove the first-N, last-N, or all the elements matching value from the List at key")
+cmd("LPOP", "k", "Return and remove (atomically) the first element of the List at key")
+cmd("RPOP", "k", "Return and remove (atomically) the last element of the List at key")
+cmd("RPOPLPUSH", "kv", "Return and remove (atomically) the last element of the source List stored at _srckey_ and push the same element to the destination List stored at _dstkey_")
 
 -- Commands operating on sets
-cmd("SADD", "km", { to_bool=true })
-cmd("SREM", "km", { to_bool=true })
-cmd("SPOP", "k")
-cmd("SMOVE", "kkm")
-cmd("SCARD", "k")
-cmd("SISMEMBER", "km", { to_bool=true })
-cmd("SINTER", "K")
-cmd("SINTERSTORE", "kK")
-cmd("SUNION", "K")
-cmd("SUNIONSTORE", "kK")
-cmd("SDIFF", "K")
-cmd("SDIFFSTORE", "kK")
-cmd("SMEMBERS", "k")
-cmd("SRANDMEMBER", "k")
+cmd("SADD", "km", "Add the specified member to the Set value at key",
+    { to_bool=true })
+cmd("SREM", "km", "Remove the specified member from the Set value at key",
+    { to_bool=true })
+cmd("SPOP", "k", "Remove and return (pop) a random element from the Set value at key")
+cmd("SMOVE", "kkm", "Move the specified member from one Set to another atomically")
+cmd("SCARD", "k", "Return the number of elements (the cardinality) of the Set at key")
+cmd("SISMEMBER", "km", "Test if the specified value is a member of the Set at key",
+    { to_bool=true })
+cmd("SINTER", "K", "Return the intersection between the Sets stored at key1, key2, ..., keyN")
+cmd("SINTERSTORE", "kK", "Compute the intersection between the Sets stored at key1, key2, ..., keyN, and store the resulting Set at dstkey")
+cmd("SUNION", "K", "Return the union between the Sets stored at key1, key2, ..., keyN")
+cmd("SUNIONSTORE", "kK", "Compute the union between the Sets stored at key1, key2, ..., keyN, and store the resulting Set at dstkey")
+cmd("SDIFF", "K", "Return the difference between the Set stored at key1 and all the Sets key2, ..., keyN")
+cmd("SDIFFSTORE", "kK", "Compute the difference between the Set key1 and all the Sets key2, ..., keyN, and store the resulting Set at dstkey")
+cmd("SMEMBERS", "k", "Return all the members of the Set value at key")
+cmd("SRANDMEMBER", "k", "Return a random member of the Set value at key")
+
 
 -- Commands operating on sorted sets
-cmd("ZADD", "kfm")
-cmd("ZREM", "km")
-cmd("ZINCRBY", "kim")
-cmd("ZREVRANGE", "kse")
-cmd("ZRANGEBYSCORE", "kff") --FIXME
-cmd("ZCARD", "k")
-cmd("ZSCORE", "kv")
-cmd("ZREMRANGEBYSCORE", "kff")
-cmd("ZRANGE", "kse",
-    { prehook=function(raw_args, msg)
+cmd("ZADD", "kfm", "Add the specified member to the Sorted Set value at key or update the score if it already exist")
+cmd("ZREM", "km", "Remove the specified member from the Sorted Set value at key")
+cmd("ZINCRBY", "kim", "If the member already exists increment its score by _increment_, otherwise add the member setting _increment_ as score")
+cmd("ZREVRANGE", "kse", "Return a range of elements from the sorted set at key, exactly like ZRANGE, but the sorted set is ordered in traversed in reverse order, from the greatest to the smallest score")
+cmd("ZRANGEBYSCORE", "kff", "Return all the elements with score >= min and score <= max (a range query) from the sorted set")
+cmd("ZCARD", "k", "Return the cardinality (number of elements) of the sorted set at key")
+cmd("ZSCORE", "kv", "Return the score associated with the specified element of the sorted set at key")
+cmd("ZREMRANGEBYSCORE", "kff", "Remove all the elements with score >= min and score <= max from the sorted set")
+cmd("ZRANGE", "kse", "Return a range of elements from the sorted set at key",
+    { pre_hook=function(raw_args, msg)
                  if raw_args[4] then
                     return msg .. " withscores"
                  else return msg end
               end })
 
 -- Persistence control commands
-cmd("SAVE", nil)
-cmd("BGSAVE", nil)
-cmd("LASTSAVE", nil)
-cmd("SHUTDOWN", nil)
-cmd("BGREWRITEAOF", nil)
-cmd("MONITOR", nil)
+cmd("SAVE", nil, "Synchronously save the DB on disk")
+cmd("BGSAVE", nil, "Asynchronously save the DB on disk")
+cmd("LASTSAVE", nil, "Return the UNIX time stamp of the last successfully saving of the dataset on disk")
+cmd("SHUTDOWN", nil, "Synchronously save the DB on disk, then shutdown the server")
+cmd("BGREWRITEAOF", nil, "Rewrite the append only file in background when it gets too big")
 
--- These three are not in the reference, but were in the TCL test suite.
-cmd("PING", nil)
-cmd("DEBUG", nil)
-cmd("RELOAD", nil)
-
----Get server info. Return table of info, or raw string w/ arg of true.
-cmd("INFO", nil,
-    { posthook =
+-- Remote server control commands
+cmd("INFO", nil, "Provide information and statistics about the server",
+    { post_hook =
       function(raw_args, res)
          if raw_args[1] then return res end --"raw" flag
          local t = {}
@@ -486,17 +494,17 @@ cmd("INFO", nil,
          end
          return t
       end })
+cmd("MONITOR", nil, "Dump all the received requests in real time")
+cmd("SLAVEOF", "ki", "Set/clear replication of another server.",
+    {arg_hook = function(args)
+                   if #args == 0 then return {"no", "one"} end
+                   return args
+                end})
 
-
----Get an iterator for keys matching a pattern.
-function Connection:keys(pattern, raw)
-   assert(type(pattern) == "string", "Bad pattern")
-   local ok, res = self:sendrecv(fmt("KEYS %s", pattern))
-   if not ok then return false, res end
-   trace(ok, "RECV: ", res)
-   if raw then return res end
-   return string.gmatch(res, "([^ ]+)")
-end
+-- These three are not in the reference, but were in the TCL test suite.
+cmd("PING", nil, "Ping the database")
+cmd("DEBUG", nil, "???")
+cmd("RELOAD", nil, "???")
 
 
 ---Sort the elements contained in the List, Set, or Sorted Set value at key.
@@ -520,15 +528,4 @@ function Connection:sort(key, t)
    if dstkey then b[#b+1] = fmt("STORE %s", dstkey) end
    
    return self:sendrecv(send, result_handler) 
-end
-
-
----Set/clear slave to another server.
-function Connection:slaveof(host, port)
-   if not host and not port then
-      return self:sendrecv("SLAVEOF no one")
-   else
-      assert(host and port)
-      return self:sendrecv(fmt("SLAVEOF %s %d", host, port))
-   end
 end
