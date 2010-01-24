@@ -341,8 +341,9 @@ end
 
 
 -- Register a command.
-local function cmd(rfun, arg_types, name, opts) 
+local function cmd(rfun, arg_types, opts) 
    opts = opts or {}
+   local name = rfun:lower()
    arg_types = arg_types or ""
    local format_args, check = gen_arg_funs(name, arg_types)
    local bulk_send = opts.bulk_send or arg_types == "T"
@@ -383,77 +384,77 @@ end
 --------------
 
 -- Connection handling
-cmd("QUIT", nil, "quit")
-cmd("AUTH", "k", "auth")
+cmd("QUIT", nil)
+cmd("AUTH", "k")
 
 -- Commands operating on all the kind of values
-cmd("EXISTS", "k", "exists", { to_bool=true })
-cmd("DEL", "K", "del")
-cmd("TYPE", "k", "type")
-cmd("RANDOMKEY", nil, "randomkey")
-cmd("RENAME", "kk", "rename")
-cmd("RENAMENX", "kk", "renamenx")
-cmd("DBSIZE", nil, "dbsize")
-cmd("EXPIRE", "kt", "expire")
-cmd("EXPIREAT", "kt", "expireat")
-cmd("TTL", "k", "ttl")
-cmd("SELECT", "d", "select")
-cmd("MOVE", "kd", "move", { to_bool=true })
-cmd("FLUSHDB", nil, "flushdb")
-cmd("FLUSHALL", nil, "flushall")
+cmd("EXISTS", "k", { to_bool=true })
+cmd("DEL", "K")
+cmd("TYPE", "k")
+cmd("RANDOMKEY", nil)
+cmd("RENAME", "kk")
+cmd("RENAMENX", "kk")
+cmd("DBSIZE", nil)
+cmd("EXPIRE", "kt")
+cmd("EXPIREAT", "kt")
+cmd("TTL", "k")
+cmd("SELECT", "d")
+cmd("MOVE", "kd", { to_bool=true })
+cmd("FLUSHDB", nil)
+cmd("FLUSHALL", nil)
 
 --Commands operating on string values
-cmd("SET", "kv", "set")
-cmd("GET", "k", "get")
-cmd("GETSET", "kv", "getset")
-cmd("MGET", "K", "mget")
-cmd("SETNX", "kv", "setnx", { to_bool=true })
-cmd("MSET", "T", "mset", { to_bool=true })
-cmd("MSETNX", "T", "msetnx", { to_bool=true })
-cmd("INCR", "k", "incr")
-cmd("INCRBY", "ki", "incrby")
-cmd("DECR", "k", "decr")
-cmd("DECRBY", "ki", "decrby")
+cmd("SET", "kv")
+cmd("GET", "k")
+cmd("GETSET", "kv")
+cmd("MGET", "K")
+cmd("SETNX", "kv", { to_bool=true })
+cmd("MSET", "T", { to_bool=true })
+cmd("MSETNX", "T", { to_bool=true })
+cmd("INCR", "k")
+cmd("INCRBY", "ki")
+cmd("DECR", "k")
+cmd("DECRBY", "ki")
 
 -- Commands operating on lists
-cmd("RPUSH", "kv", "rpush")
-cmd("LPUSH", "kv", "lpush")
-cmd("LLEN", "k", "llen")
-cmd("LRANGE", "kse", "lrange")
-cmd("LTRIM", "kse", "ltrim")
-cmd("LINDEX", "ki", "lindex")
-cmd("LSET", "kiv", "lset")
-cmd("LREM", "kiv", "lrem")
-cmd("LPOP", "k", "lpop")
-cmd("RPOP", "k", "rpop")
-cmd("RPOPLPUSH", "kv", "rpoplpush")
+cmd("RPUSH", "kv")
+cmd("LPUSH", "kv")
+cmd("LLEN", "k")
+cmd("LRANGE", "kse")
+cmd("LTRIM", "kse")
+cmd("LINDEX", "ki")
+cmd("LSET", "kiv")
+cmd("LREM", "kiv")
+cmd("LPOP", "k")
+cmd("RPOP", "k")
+cmd("RPOPLPUSH", "kv")
 
 -- Commands operating on sets
-cmd("SADD", "km", "sadd", { to_bool=true })
-cmd("SREM", "km", "srem", { to_bool=true })
-cmd("SPOP", "k", "spop")
-cmd("SMOVE", "kkm", "smove")
-cmd("SCARD", "k", "scard")
-cmd("SISMEMBER", "km", "sismember", { to_bool=true })
-cmd("SINTER", "K", "sinter")
-cmd("SINTERSTORE", "kK", "sinterstore")
-cmd("SUNION", "K", "sunion")
-cmd("SUNIONSTORE", "kK", "sunionstore")
-cmd("SDIFF", "K", "sdiff")
-cmd("SDIFFSTORE", "kK", "sdiffstore")
-cmd("SMEMBERS", "k", "smembers")
-cmd("SRANDMEMBER", "k", "srandmember")
+cmd("SADD", "km", { to_bool=true })
+cmd("SREM", "km", { to_bool=true })
+cmd("SPOP", "k")
+cmd("SMOVE", "kkm")
+cmd("SCARD", "k")
+cmd("SISMEMBER", "km", { to_bool=true })
+cmd("SINTER", "K")
+cmd("SINTERSTORE", "kK")
+cmd("SUNION", "K")
+cmd("SUNIONSTORE", "kK")
+cmd("SDIFF", "K")
+cmd("SDIFFSTORE", "kK")
+cmd("SMEMBERS", "k")
+cmd("SRANDMEMBER", "k")
 
 -- Commands operating on sorted sets
-cmd("ZADD", "kfm", "zadd")
-cmd("ZREM", "km", "zrem")
-cmd("ZINCRBY", "kim", "zincrby")
-cmd("ZREVRANGE", "kse", "zrevrange")
-cmd("ZRANGEBYSCORE", "kff", "zrangebyscore") --FIXME
-cmd("ZCARD", "k", "zcard")
-cmd("ZSCORE", "kv", "zscore")
-cmd("ZREMRANGEBYSCORE", "kff", "zremrangebyscore")
-cmd("ZRANGE", "kse", "zrange",
+cmd("ZADD", "kfm")
+cmd("ZREM", "km")
+cmd("ZINCRBY", "kim")
+cmd("ZREVRANGE", "kse")
+cmd("ZRANGEBYSCORE", "kff") --FIXME
+cmd("ZCARD", "k")
+cmd("ZSCORE", "kv")
+cmd("ZREMRANGEBYSCORE", "kff")
+cmd("ZRANGE", "kse",
     { prehook=function(raw_args, msg)
                  if raw_args[4] then
                     return msg .. " withscores"
@@ -461,20 +462,20 @@ cmd("ZRANGE", "kse", "zrange",
               end })
 
 -- Persistence control commands
-cmd("SAVE", nil, "save")
-cmd("BGSAVE", nil, "bgsave")
-cmd("LASTSAVE", nil, "lastsave")
-cmd("SHUTDOWN", nil, "shutdown")
-cmd("BGREWRITEAOF", nil, "bgrewriteaof")
-cmd("MONITOR", nil, "monitor")
+cmd("SAVE", nil)
+cmd("BGSAVE", nil)
+cmd("LASTSAVE", nil)
+cmd("SHUTDOWN", nil)
+cmd("BGREWRITEAOF", nil)
+cmd("MONITOR", nil)
 
 -- These three are not in the reference, but were in the TCL test suite.
-cmd("PING", nil, "ping")
-cmd("DEBUG", nil, "debug")
-cmd("RELOAD", nil, "reload")
+cmd("PING", nil)
+cmd("DEBUG", nil)
+cmd("RELOAD", nil)
 
 ---Get server info. Return table of info, or raw string w/ arg of true.
-cmd("INFO", nil, "info",
+cmd("INFO", nil,
     { posthook =
       function(raw_args, res)
          if raw_args[1] then return res end --"raw" flag
