@@ -172,6 +172,7 @@ function Connection:bulk_receive(length)
       buf[#buf+1] = read; rem = rem - read:len()
    end
    local res = concat(buf)
+   trace("BULK_RECEIVE: ", res)
    return true, res:sub(1, -3)  --drop the CRLF
 end
 
@@ -466,10 +467,10 @@ cmd("ZINCRBY", "kim", "If the member already exists increment its score by _incr
 cmd("ZREVRANGE", "kse", "Return a range of elements from the sorted set at key, exactly like ZRANGE, but the sorted set is ordered in traversed in reverse order, from the greatest to the smallest score")
 cmd("ZRANGEBYSCORE", "kff", "Return all the elements with score >= min and score <= max (a range query) from the sorted set",
     { pre_hook=function(raw_args, msg)
-                  local to, from = raw_args[4], raw_args[5]
-                  if to and from then
-                     to, from = tonumber(to), tonumber(from)
-                     msg = msg .. fmt(" LIMIT %d %d", to, from)
+                  local offset, count = raw_args[4], raw_args[5]
+                  if offset and count then
+                     offset, count = tonumber(offset), tonumber(count)
+                     msg = msg .. fmt(" LIMIT %d %d", offset, count)
                   end
                   return msg
                end})
@@ -521,7 +522,7 @@ cmd("RELOAD", nil, "???")
 function Connection:sort(key, t)
    local by = t.by
    local start, count = t.start, t.count
-   local pattern = t.pattern
+   local pattern = t.by
    local asc, desc, alpha = t.asc, t.desc, t.alpha --ASC is default
    local dstkey = t.dstkey
 

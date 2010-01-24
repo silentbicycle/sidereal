@@ -19,8 +19,9 @@ local nonblocking, trace_nb = true, false
 
 module("tests", lunit.testcase, package.seeall)
 local fmt, floor, random = string.format, math.floor, math.random
+math.randomseed(os.time())
 
-local do_slow, do_auth = true, false
+local do_slow, do_auth = false, false
 
 
 -- for locally overriding the debug flag
@@ -139,7 +140,6 @@ local NULL = sidereal.NULL
 function test_cleandb()
    assert_equal("OK", R:flushdb())
 end
-
 
 -- AUTH
 if do_auth then
@@ -467,7 +467,6 @@ end
 function test_LINDEX_against_non_existing_key()
    assert_equal(NULL, R:lindex("not-a-key", 10))
 end
-
 
 
 function test_LPUSH_against_nonlist_value_error()
@@ -1068,6 +1067,7 @@ end
 
 
 function test_SORT_with_BY_against_the_newly_created_list()
+   R:sort("tosort", {by="weight_*"})
         R:sort(tosort {BY weight_*})
     } $res
 end
@@ -1474,55 +1474,53 @@ function test_ZRANGE_WITHSCORES()
 end
 
 
-print "FIXME: I think this is broken because I mistranslated the TCL"
---[[
+-- Give keys of "1" to "1000" a random score, have redis sort them by score,
+-- sort them, ourselves, and make sure the order matches.
 function test_ZSETs_stress_tester_is_sorting_is_working_well()
-   local delta = 0
+   local delta, lim = 0, 1000
    for test=0,1 do
-      local auxarray, auxlist = {}, {}
+      local auxarray = {}
       R:del("myzset")
-      for i=1,1000 do
-         local score = random() * (10^test)
+      for i=1,lim do
+         local score = random() * (10^test) --i.e., 1 or 10
          auxarray[i] = score
          R:zadd("myzset", score, i)
 
          -- Random update
          if random() < .2 then
-            local j = floor(random() * 1000)
+            local j = floor(random() * lim)
             score = random() * (10^test)
             auxarray[j] = score
             R:zadd("myzset", score, j)
          end
       end
 
+      local scores = {}
       for item, score in pairs(auxarray) do
-         auxlist[#auxlist+1] = {score, item}
+         scores[#scores+1] = {score, item}
       end
 
-      table.sort(auxlist,
+      table.sort(scores,
                  function(a, b)
                     if a[1] < b[1] then return true
                     elseif a[1] > b[1] then return false
                     else return a[2] < b[2] end
                  end)
-      local sorted = auxlist
-      auxlist = {}
-      for _,x in pairs(sorted) do
-         auxlist[#auxlist+1] = x[1]
-      end
+      local sorted = scores
+      scores = {}
+      for _,p in ipairs(sorted) do scores[#scores+1] = p[2] end
 
-      local fromredis = lsort(R:zrange("myzset", 0, -1))
-      delta = 0
-      for i=1,#fromredis do
-         if fromredis[i] ~= auxlist[i] then
-            --print(fromredis[i], auxlist[i])
+      local fr = {}             --from redis
+      for x in R:zrange("myzset", 0, -1) do fr[#fr+1] = x end
+      for i=1,#fr do
+         if fr[i] ~= tostring(scores[i]) then
             delta = delta + 1
          end
       end
    end
    assert_equal(0, delta)
 end
---]]
+
 
 function test_ZINCRBY_can_create_a_new_sorted_set()
    R:del("zset")
@@ -1558,47 +1556,37 @@ function test_ZRANGEBYSCORE_basics()
    cmp(R:zrangebyscore("zset", 2, 4), {"b", "c", "d"})
 end
 
---[[
-function test_ZRANGEBYSCORE_fuzzy_test_100_ranges_in_1000_elements_sorted_set()
-        local err = {}
-        $r del zset
-        for i=0,1000 do
-            $r zadd zset [expr rand()] $i
-        end
-        for i=0,100 do
-            local min = [expr rand()]
-            local max = [expr rand()]
-            if {$min > $max} {
-                local aux = $min
-                local min = $max
-                local max = $aux
-            end
-            local low = R:zrangebyscore("zset", -inf $min)
-            local ok = R:zrangebyscore("zset", $min $max)
-            local high = R:zrangebyscore("zset", $max +inf)
-            foreach x $low {
-                local score = R:zscore("zset", $x)
-                if {$score > $min} {
-                    append err "Error, score for $x is $score > $min\n"
-                end
-            end
-            foreach x $ok {
-                local score = R:zscore("zset", $x)
-                if {$score < $min || $score > $max} {
-                    append err "Error, score for $x is $score outside $min-$max range\n"
-                end
-            end
-            foreach x $high {
-                local score = R:zscore("zset", $x)
-                if {$score < $max} {
-                    append err "Error, score for $x is $score < $max\n"
-                end
-            end
-        end
-        local _ $err =
---    } {}
+
+if do_slow then
+   function test_ZRANGEBYSCORE_fuzzy_test_100_ranges_in_1000_elements_sorted_set()
+      print "\nStress testing ZRANGEBYSCORE"
+      for i=1,1000 do R:zadd("zset", random(), i) end
+      for i=1,100 do
+         local lb, ub = random(), random()    --lower bound, upper bound
+         if lb > ub then lb, ub = ub, lb end
+         
+         local low = R:zrangebyscore("zset", "-inf", lb)
+         local mid = R:zrangebyscore("zset", lb, ub)
+         local high = R:zrangebyscore("zset", ub, "+inf")
+         
+         for x in low do
+            local score = tonumber(R:zscore("zset", x))
+            assert(score < lb, "Score is greater than upper bound")
+         end
+         
+         for x in mid do
+            local score = tonumber(R:zscore("zset", x))
+            assert(score > lb and score < ub, "Score is out of bounds")
+         end
+         
+         for x in high do
+            local score = tonumber(R:zscore("zset", x))
+            assert(score > ub, "Score is less than lower bound")
+         end
+      end
+   end
 end
---]]
+   
 
 local function z_init2()
    R:zadd("zset", 1, "a")
@@ -1608,6 +1596,7 @@ local function z_init2()
    R:zadd("zset", 5, "e")
 end
 
+
 function test_ZRANGEBYSCORE_with_LIMIT()
    z_init2()
    cmp(R:zrangebyscore("zset", 0, 10, 0, 2), {"a", "b"})
@@ -1616,6 +1605,7 @@ function test_ZRANGEBYSCORE_with_LIMIT()
    local iter = R:zrangebyscore("zset", 0, 10, 20, 10)
    assert_nil(iter())
 end
+
 
 function test_ZREMRANGE_basics()
    z_init2()
@@ -1802,6 +1792,7 @@ function test_SELECT_an_out_of_range_DB()
 end
 
 
+print "TODO test_Check_consistency_of_different_data_types_after_a_reload"
 --[[
     if {![local ok, err = {package require sha1}]} {
     function test_Check_consistency_of_different_data_types_after_a_reload()
@@ -1882,4 +1873,3 @@ end
 function test_Perform_a_final_SAVE_to_leave_a_clean_DB_on_disk()
    R:save()
 end
-
