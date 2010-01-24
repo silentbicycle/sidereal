@@ -115,7 +115,6 @@ end
 
 
 -- GET, SET, DEL
-
 function test_set_get()
    R:set("x", "foobar")
    assert_equal("foobar", R:get("x"))
@@ -1298,29 +1297,34 @@ function test_SMOVE_wrong_dst_key_type()
 end
 
 
--- BROKEN. Fix MST table arg handling.
-function test_MSET_base_case()
-   dbg()
-   R:mset{ x=10, y="foo bar", z="x x x x x x x\n\n\r\n" }
-   undbg()
+local function mset_init()
+   assert_equal("OK", R:mset{ x=10, y="foo bar",
+                              z="x x x x x x x\n\n\r\n" })
+end
+
+local function test_MSET_base_case()
+   mset_init()
    cmp(R:mget("x", "y", "z"),
        {10, "foo bar", "x x x x x x x\n\n\r\n"})
 end
 
 
---[============[ 
-
 function test_MSETNX_with_already_existent_key()
+   mset_init()
    R:set("x", 20)
-   assert_equal(0, R:msetnx{x1="xxx", y2="yyy", x=20})
+   assert_false(R:msetnx{ x1="xxx", y2="yyy", x=20 })
    assert_false(R:exists("x1"))
    assert_false(R:exists("x2"))
 end
 
 
 function test_MSETNX_with_not_existing_keys()
-   assert_equal(1, R:msetnx{ x1="xxx", y2="yyy" })
-   assert_equal("xxx", R:get("x1"))
+--    assert_true(R:msetnx { x1="xxx", y2="yyy" })
+   R:msetnx{ x1="xxx", y2="yyy" }
+
+   local res, err = R:get("x1")
+   assert(res, err)
+   assert_equal("xxx", res)
    assert_equal("yyy", R:get("y2"))
 end
 
@@ -1329,10 +1333,12 @@ function test_MSETNX_should_remove_all_the_volatile_keys_even_on_failure()
    R:mset{ x=1, y=2, z=3 }
    R:expire("y", 10000)
    R:expire("z", 10000)
-   assert_equal(0, R:msetnx{ x="A", y="B", z="C"})
-   cmp(R:mget("x", "y", "z"), {1, NULL, NULL})
+   assert_false(R:msetnx{ x="A", y="B", z="C"})
+   cmp(R:mget("x", "y", "z"), {"1", NULL, NULL})
 end
 
+
+--[============[ 
 function test_ZSET_basic_ZADD_and_score_update()
         R:zadd(ztmp 10, "x")
         R:zadd(ztmp 20, "y")

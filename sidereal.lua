@@ -277,12 +277,13 @@ local formatter = {
                  return concat(array, " ")
               end,
    table = function(t)
-              print("TABLE FORMATTER")
-              local buf = {}
+              local b = {}
               for k,v in pairs(t) do
-                 return fmt("%s %d\r\n%s\r\n", k, v:len(), v)
+                 v = tostring(v)
+                 b[#b+1] = fmt("$%d\r\n%s\r\n$%d\r\n%s\r\n",
+                               k:len(), k, v:len(), v)
               end
-              return concat(buf, " ")
+              return b
            end
 }
 
@@ -304,9 +305,9 @@ local types = { k={ "key", formatter.simple, typetest.str },
              }
 
 
-local uses_bulk_args = {}
-uses_bulk_args[formatter.table] = true
-uses_bulk_args[formatter.bulklist] = true
+local is_vararg = {}
+-- uses_bulk_args[formatter.table] = true
+is_vararg[formatter.bulklist] = true
 
 local function gen_arg_funs(funcname, spec)
    if not spec then return function(t) return t end end
@@ -326,7 +327,7 @@ local function gen_arg_funs(funcname, spec)
    local format = function(t)
          local args = {}
          for i=1,#fs do
-            if uses_bulk_args[fs[i]] then
+            if is_vararg[fs[i]] then
                for rest=i,#t do args[rest] = tostring(t[rest]) end
                break
             end
@@ -340,19 +341,32 @@ end
 
 
 -- Register a command.
-local function cmd(rfun, arg_types, name, to_bool) 
+local function cmd(rfun, arg_types, name, opts) 
+   opts = opts or {}
    arg_types = arg_types or ""
    local format_args, check = gen_arg_funs(name, arg_types)
+   local bulk_send = opts.bulk_send or arg_types == "T"
 
    Connection[name] = 
       function(self, ...) 
+         local send
          local arglist, err = format_args({...})
-         if not arglist then return false, err end
+         if bulk_send then
+            local b = {}
+            arglist = arglist[1]
+            local arg_ct = 2*(#arglist)
+            b[1] = fmt("*%d\r\n$%d\r\n%s\r\n",
+                       arg_ct + 1, rfun:len(), rfun)
+            for _,arg in ipairs(arglist) do b[#b+1] = arg end
+            send = concat(b)
+         else
+            if not arglist then return false, err end
+            
+            if self.DEBUG then check(arglist) end
+            send = fmt("%s %s", rfun, concat(arglist, " "))
+         end
 
-         if self.DEBUG then check(arglist) end
-         local send = fmt("%s %s", rfun, concat(arglist, " "))
-
-         local ok, res = self:sendrecv(send, to_bool)
+         local ok, res = self:sendrecv(send, opts.to_bool)
          if ok then return res else return false, res end
       end
 end
@@ -367,7 +381,7 @@ cmd("QUIT", nil, "quit")
 cmd("AUTH", "k", "auth")
 
 -- Commands operating on all the kind of values
-cmd("EXISTS", "k", "exists", true)
+cmd("EXISTS", "k", "exists", { to_bool=true })
 cmd("DEL", "K", "del")
 cmd("TYPE", "k", "type")
 cmd("RANDOMKEY", nil, "randomkey")
@@ -378,7 +392,7 @@ cmd("EXPIRE", "kt", "expire")
 cmd("EXPIREAT", "kt", "expireat")
 cmd("TTL", "k", "ttl")
 cmd("SELECT", "d", "select")
-cmd("MOVE", "kd", "move", true)
+cmd("MOVE", "kd", "move", { to_bool=true })
 cmd("FLUSHDB", nil, "flushdb")
 cmd("FLUSHALL", nil, "flushall")
 
@@ -387,9 +401,9 @@ cmd("SET", "kv", "set")
 cmd("GET", "k", "get")
 cmd("GETSET", "kv", "getset")
 cmd("MGET", "K", "mget")
-cmd("SETNX", "kv", "setnx", true)
-cmd("MSET", "T", "mset")
-cmd("MSETNX", "T", "msetnx", true)
+cmd("SETNX", "kv", "setnx", { to_bool=true })
+cmd("MSET", "T", "mset", { to_bool=true })
+cmd("MSETNX", "T", "msetnx", { to_bool=true })
 cmd("INCR", "k", "incr")
 cmd("INCRBY", "ki", "incrby")
 cmd("DECR", "k", "decr")
@@ -409,12 +423,12 @@ cmd("RPOP", "k", "rpop")
 cmd("RPOPLPUSH", "kv", "rpoplpush")
 
 -- Commands operating on sets
-cmd("SADD", "km", "sadd", true)
-cmd("SREM", "km", "srem", true)
+cmd("SADD", "km", "sadd", { to_bool=true })
+cmd("SREM", "km", "srem", { to_bool=true })
 cmd("SPOP", "k", "spop")
 cmd("SMOVE", "kkm", "smove")
 cmd("SCARD", "k", "scard")
-cmd("SISMEMBER", "km", "sismember", true)
+cmd("SISMEMBER", "km", "sismember", { to_bool=true })
 cmd("SINTER", "K", "sinter")
 cmd("SINTERSTORE", "kK", "sinterstore")
 cmd("SUNION", "K", "sunion")
