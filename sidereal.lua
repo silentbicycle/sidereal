@@ -438,7 +438,7 @@ cmd("LSET", "kiv", "Set a new value as the element at index position of the List
 cmd("LREM", "kiv", "Remove the first-N, last-N, or all the elements matching value from the List at key")
 cmd("LPOP", "k", "Return and remove (atomically) the first element of the List at key")
 cmd("RPOP", "k", "Return and remove (atomically) the last element of the List at key")
-cmd("RPOPLPUSH", "kv", "Return and remove (atomically) the last element of the source List stored at _srckey_ and push the same element to the destination List stored at _dstkey_")
+cmd("RPOPLPUSH", "kk", "Return and remove (atomically) the last element of the source List stored at _srckey_ and push the same element to the destination List stored at _dstkey_")
 
 -- Commands operating on sets
 cmd("SADD", "km", "Add the specified member to the Set value at key",
