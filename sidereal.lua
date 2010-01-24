@@ -1,5 +1,5 @@
 ------------------------------------------------------------------------
--- Copyright (c) 2009 Scott Vokes <scott@silentbicycle.com>
+-- Copyright (c) 2009 Scott Vokes <vokes.s@gmail.com>
 --
 -- Permission to use, copy, modify, and/or distribute this software for any
 -- purpose with or without fee is hereby granted, provided that the above
@@ -22,6 +22,16 @@
 ------------------------------------------------------------------------
 
 
+------------------------------------------------------------------------
+-- TODO
+-- * finish converting test suite
+-- * LuaDoc stubs for generated commands?
+-- * foundation for consistent hashing?
+-- * profile and tune
+-- * handle auto-reconnecting
+------------------------------------------------------------------------
+
+
 -------------------------
 -- Module requirements --
 -------------------------
@@ -35,7 +45,7 @@ local tonumber, tostring = tonumber, tostring
 
 module(...)
 
--- global null sentinel, to distinguish from Lua's nil
+-- global null sentinel, to distinguish Redis's null from Lua's nil
 NULL = setmetatable( {}, {__tostring = function() return "[NULL]" end} )
 
 
@@ -50,6 +60,7 @@ local function trace(...)
    if DEBUG then print(...) end
 end
 
+
 ----------------
 -- Connection --
 ----------------
@@ -60,7 +71,7 @@ local ConnMT = { __index = Connection, __string = Connection.tostring }
 
 ---Create and return a connection object.
 -- @param pass_hook If defined, use non-blocking IO, and run it to defer control.
--- (use to send a 'pass' message to a coroutine scheduler.)
+-- (use to send a 'pass' message to your coroutine scheduler.)
 function connect(host, port, pass_hook)
    host = host or "localhost"
    port = port or 6379
@@ -73,12 +84,10 @@ function connect(host, port, pass_hook)
       error(fmt("Could not connect to %s port %d.", host, port)) 
    end
 
-   -- Also putting help() in connection namespace, so it's extra-visible.
    local conn = { _socket = s, 
                   host = host,
                   port = port,
                   _pass = pass_hook,
-                  help = Connection.help
                }
    return setmetatable(conn, ConnMT )
 end
@@ -133,7 +142,8 @@ end
 
 ---Receive, passing if necessary.
 function Connection:receive(len)
-   -- TODO rather than using socket:receive, should receive bulk and save unread.
+   -- TODO rather than using socket:receive, receive bulk and save unread?
+   --      wait until after the test suite is done.
    local s, pass = self._socket, self.pass
    while true do
       local data, err, rest = s:receive(len)
@@ -157,9 +167,7 @@ function Connection:bulk_receive(length)
    while rem > 0 do
       local ok, read = self:receive(rem)
       if not ok then return false, read end
-
-      buf[#buf+1] = read
-      rem = rem - read:len()
+      buf[#buf+1] = read; rem = rem - read:len()
    end
    local res = concat(buf)
    return true, res:sub(1, -3)  --drop the CRLF
@@ -167,18 +175,16 @@ end
 
 
 ---Return an interator for N bulk responses.
--- NB. All responses are read and queued, so pipelining works.
 function Connection:bulk_multi_receive(count)
    local ct = count
-
    local queue = {}
-
    trace(" * BULK_MULTI_RECV, ct=", count)
 
+   -- Read and queue all responses, so pipelining works.
    for i=1,ct do
       local ok, read = self:receive("*l")
       if not ok then return false, read end
-      trace("   READLINE ", ok, read)
+      trace("   READLINE:", ok, read)
       assert(read:sub(1, 1) == "$", read:sub(1, 1))
       local length = assert(tonumber(read:sub(2)), "Bad length")
       if length == -1 then
@@ -239,9 +245,9 @@ function Connection:handle_response(line, to_bool)
 end
 
 
---------------
--- Commands --
---------------
+------------------------
+-- Command generation --
+------------------------
 
 local typetest = {
    str = function(x) return type(x) == "string" end,
@@ -251,7 +257,7 @@ local typetest = {
    strlist = function(x)
                 if type(x) ~= "table" then return false end
                 for k,v in pairs(x) do
-                   if type(k) ~= "number" or type(v) ~= "string" then return false end
+                   if type(k) ~= "number" and type(v) ~= "string" then return false end
                 end
                 return true
              end
@@ -266,19 +272,11 @@ local formatter = {
           end,
    bulklist = function(array)
                  if type(array) ~= "table" then array = { array } end
-                 --for k,v in pairs(array) do print(k,v) end
-                 local buf = {}
-                 for _,val in ipairs(array) do
-                    --buf[#buf+1] = fmt("%d\r\n%s\r\n", val:len(), val)
-                    buf[#buf+1] = val
-                 end
-                 return concat(buf, " ")
+                 return concat(array, " ")
               end,
    table = function(t)
               local buf = {}
-              for k,v in pairs(t) do
-                 buf[#buf+1] = fmt("%s %s", k, v)
-              end
+              for k,v in pairs(t) do buf[#buf+1] = fmt("%s %s", k, v) end
               return concat(buf, " ")
            end
 }
@@ -300,51 +298,37 @@ local types = { k={ "key", formatter.simple, typetest.str },
                 m={ "member", formatter.bulk, typetest.todo },      -- FIXME, key???
              }
 
-local function gen_arg_hook(funcname, spec)
-   if not spec then
-      return function(t) return t end
-   end
 
-   local fs, tts = {}, {}
+local uses_bulk_args = {}
+uses_bulk_args[formatter.table] = true
+uses_bulk_args[formatter.bulklist] = true
+
+local function gen_arg_funs(funcname, spec)
+   if not spec then return function(t) return t end end
+   local fs, tts = {}, {}       --formatters, type-testers
 
    for arg in gmatch(spec, ".") do
       local row = types[arg]
-      if row then
-         local f, tt = row[2], row[3]
-         fs[#fs+1] = f
-         tts[#tts+1] = tt
-      else
-         error("unmatched ", arg)
-      end
+      if not row then error("unmatched ", arg) end
+      fs[#fs+1], tts[#tts+1] = row[2], row[3]
    end
 
-   local bulk = formatter.bulklist
-   local bulk_keys = (fs[#fs] == bulk)
-
    local check = function(args)
-         for i=1,#tts do
-            if not tts[i](args[i]) then return false end
-         end
+         for i=1,#tts do if not tts[i](args[i]) then return false end end
          return true
       end
-
+   
    local format = function(t)
          local args = {}
-
-         -- Convert arguments and check arity, but just
-         -- copy rest if it's a vararg ("K") function.
          for i=1,#fs do
-            if fs[i] == bulk then
+            if uses_bulk_args[fs[i]] then
                for rest=i,#t do args[rest] = tostring(t[rest]) end
                break
             end
             args[i] = fs[i](t[i])
          end
-         if #args < #fs then
-            error("Not enough arguments")
-         else
-            return args
-         end
+         if #args < #fs then error("Not enough arguments") end
+         return args
       end
    return format, check
 end
@@ -352,11 +336,8 @@ end
 
 -- Register a command.
 local function cmd(rfun, arg_types, name, to_bool) 
-   opts = opts or {}
    arg_types = arg_types or ""
-   local result_handler = opts.result_handler    -- optional
-
-   local format_args, check = gen_arg_hook(name, arg_types)
+   local format_args, check = gen_arg_funs(name, arg_types)
 
    Connection[name] = 
       function(self, ...) 
@@ -369,9 +350,12 @@ local function cmd(rfun, arg_types, name, to_bool)
          local ok, res = self:sendrecv(send, to_bool)
          if ok then return res else return false, res end
       end
-
-   --doctable[name] = docstring
 end
+
+
+--------------
+-- Commands --
+--------------
 
 -- Connection handling
 cmd("QUIT", nil, "quit")
@@ -454,25 +438,18 @@ cmd("SHUTDOWN", nil, "shutdown")
 cmd("BGREWRITEAOF", nil, "bgrewriteaof")
 cmd("MONITOR", nil, "monitor")
 
--- These three are not in the reference, but in the TCL test suite.
+-- These three are not in the reference, but were in the TCL test suite.
 cmd("PING", nil, "ping")
 cmd("DEBUG", nil, "debug")
 cmd("RELOAD", nil, "reload")
 
 
--- Other commands
-
----Get server info.
+---Get server info. Return table of info, or unparsed string if raw.
 function Connection:info(raw)
    local ok, res = self:sendrecv("INFO")
    if not ok then return false, res end
    trace("RECV:", res)
-
-   if not ok then
-      return false, res
-   elseif raw then
-      return res
-   end
+   if raw then return res end
 
    local t = {}
    for k,v in gmatch(res, "(.-):(.-)\r\n") do
@@ -489,22 +466,19 @@ function Connection:keys(pattern, raw)
    local ok, res = self:sendrecv(fmt("KEYS %s", pattern))
    if not ok then return false, res end
    trace(ok, "RECV: ", res)
-
-   if raw then
-      return res
-   else
-      return string.gmatch(res, "[^ ]+")
-   end
+   if raw then return res end
+   return string.gmatch(res, "([^ ]+)")
 end
 
 
 ---Sort the elements contained in the List, Set, or Sorted Set value at key.
 -- SORT key [BY pattern] [LIMIT start count] [GET pattern] [ASC|DESC] [ALPHA] [STORE dstkey]
+-- use e.g. r:sort("key", { start=10, count=25, alpha=true })
 function Connection:sort(key, t)
    local by = t.by
    local start, count = t.start, t.count
    local pattern = t.pattern
-   local asc, desc, alpha = t.asc, t.desc, t.alpha --default: ASC
+   local asc, desc, alpha = t.asc, t.desc, t.alpha --ASC is default
    local dstkey = t.dstkey
 
    assert(not(asc and desc), "ASC and DESC are mutually exclusive")
