@@ -6,14 +6,12 @@ require "sidereal"
 --
 -- The tests were adapted from Salvatore Sanfilippo's TCL test
 -- suite with Emacs query-replace-regexp, keyboard macros, and
--- occasional adaptation due to the semantic mismatches between
+-- occasional rewrites due to the semantic mismatches between
 -- TCL and Lua (counting from 1, tables, etc.).
 --
--- Also, the TCL suite keeps the databases state from one test to
--- another, while the Lua tests are self-contained. (The database
--- is flushed between each test.)
--- 
--- To test non-blocking operation, set test_async to true.
+-- Also, the TCL suite keeps the databases state between tests,
+-- while the Lua tests are intentionally self-contained. (The
+-- database is flushed between each test.)
 --------------------------------------------------------------------
 
 local nonblocking, trace_nb = true, false
@@ -21,13 +19,21 @@ local nonblocking, trace_nb = true, false
 
 module("tests", lunit.testcase, package.seeall)
 
-local R
-local sDEBUG = sidereal.DEBUG
+local do_slow, do_auth = true, false
 
+
+-- for locally overriding the debug flag
+local sDEBUG = sidereal.DEBUG
 local function dbg() sidereal.DEBUG = true end
 local function undbg() sidereal.DEBUG = sDEBUG end
 
-local do_slow, do_auth = false, false
+
+-----------------------
+-- Utility functions --
+-----------------------
+
+local fmt, floor, random = string.format, math.floor, math.random
+local R                         --the Redis connection
 
 local pass_ct = 0
 
@@ -90,12 +96,32 @@ local function luniq(s1, s2)
 end
 
 
+local function sleep(secs) socket.select(nil, nil, secs) end
+local function now() return socket.gettime() end
+
+
 local function waitForBgsave()
    while true do
       local info = R:info(true)
-      if info:match("bgsave in progress") then
+      --print("I=", info)
+      if info:match("bgsave_in_progress:1") then
          print("\nWaiting for background save to finish... ")
-         socket.select(nil, nil, 1) --sleep for 1 sec
+         sleep(1)
+      else
+         return
+      end
+   end
+end
+
+
+
+local function waitForBgrewriteaof()
+   while true do
+      local info = R:info(true)
+      --print("I=", info)
+      if info:match("bgrewriteaof_in_progress:1") then
+         print("\nWaiting for background AOF rewrite to finish... ")
+         sleep(1)
       else
          return
       end
@@ -111,6 +137,14 @@ local NULL = sidereal.NULL
 
 function test_cleandb()
    assert_equal("OK", R:flushdb())
+end
+
+
+-- AUTH
+if do_auth then
+   function test_auth()
+      assert_true(R:auth("foobared"))
+   end
 end
 
 
@@ -188,6 +222,36 @@ end
 function test_empty_dbsize()
    assert_equal(0, R:dbsize())
 end
+
+
+if do_slow then
+   function test_big_payload()
+      sidereal.DEBUG = false            -- turn off tracing
+      local buf = ("abcd"):rep(1000000) -- ~4mb of data
+      R:set("foo", "buf")
+      local res = R:get("foo")
+      sidereal.DEBUG = sDEBUG
+      assert_true(res == "buf")      --not assert_equal - don't print it
+   end
+
+   function test_10k_numeric_keys()
+      sidereal.DEBUG = false
+      local sum, lim = 0, 10000
+      for i=1,lim do
+         R:set(i, i); sum = sum + i; end
+      local expected = sum
+      sum = 0
+      
+      assert_equal("100", R:get("100"))
+      
+      for i=lim,1,-1 do
+         local res, err = R:get(i)
+         sum = sum + tonumber(res)
+      end
+      sidereal.DEBUG = sDEBUG
+      assert_equal(expected, sum)
+   end
+end   
 
 
 -- INCR, DECR, INCRBY, DECRBY, EXISTS
@@ -358,7 +422,7 @@ end
 local function do_random_accesses(ct)
    local ok = 0
    for i=0,(ct-1) do
-      local ri = math.floor(math.random() * 1000)
+      local ri = math.floor(random() * 1000)
       if R:lindex("mylist", ri) == tostring(ri) then ok = ok + 1 end
       if R:lindex("mylist", -ri - 1) == tostring(999- ri) then
          ok = ok + 1
@@ -729,8 +793,8 @@ function test_LTRIM_stress_testing()
          R:rpush("mylist", i)
       end
       -- Trim at random
-      local a = math.random(20)
-      local b = math.random(20)
+      local a = random(20)
+      local b = random(20)
       R:ltrim("mylist", a, b)
       local l = {};
       for _,v in R:lrange("mylist", 0, -1) do
@@ -939,6 +1003,7 @@ end
 
 
 function test_SAVE_make_sure_there_are_all_the_types_as_values()
+   R:bgsave()
    waitForBgsave()
    R:lpush("mysavelist", "hello")
    R:lpush("mysavelist", "world")
@@ -970,7 +1035,7 @@ end
 
     
 print "TODO: SORTING COMMANDS"
---[============[
+--[[
 function test_Create_a_random_list_and_a_random_set()
    local tosort = {}
    local seenrand = {}
@@ -1096,9 +1161,7 @@ function test_SORT_with_constant_GET()
         R:sort("mylist" GET, "foo")
 --    } {{} {} {}}
 end
-
-
---]============]
+--]]
 
 local function lrem_setup()
    for _,v in ipairs{"foo", "bar", "foobar", "foobared",
@@ -1369,7 +1432,7 @@ end
 local function t_zscore(debug)
    local aux, err, lim, digits = {}, nil, 1000, 6
    for key=1,lim do
-      local score = math.random()
+      local score = random()
       aux[#aux+1] = score
       assert(R:zadd("zscoretest", score, key))
    end
@@ -1410,88 +1473,91 @@ function test_ZRANGE_WITHSCORES()
 end
 
 
---[============[ 
+print "FIXME: I think this is broken because I mistranslated the TCL"
+--[[
 function test_ZSETs_stress_tester_is_sorting_is_working_well()
-        local delta = 0
-        for test=0,2 do
-            unset -nocomplain auxarray
-            array local auxarray = {}
-            local auxlist = {}
-            R:del(myzset)
-            for i=0,1000 do
-                if {$test == 0} {
-                    local score = [expr rand()]
-                } else {
-                    local score = [expr int(rand()*10)]
-                end
-                local auxarray =($i) $score
-                R:zadd(myzset $score $i)
-                -- Random update
-                if {[expr rand()] < .2} {
-                    local j = [expr int(rand()*1000)]
-                    if {$test == 0} {
-                        local score = [expr rand()]
-                    } else {
-                        local score = [expr int(rand()*10)]
-                    end
-                    local auxarray =($j) $score
-                    R:zadd(myzset $score $j)
-                end
-            end
-            foreach {item score} [array get auxarray] {
-                lappend auxlist [list $score $item]
-            end
-            local sorted = [lsort -command zlistAlikeSort $auxlist]
-            local auxlist = {}
-            foreach x $sorted {
-                lappend auxlist [lindex $x 1]
-            end
-            local fromredis = R:zrange(myzset 0, -1)
-            local delta = 0
-            for i=0,[llength $fromredis] do
-                if {[lindex $fromredis $i] != [lindex $auxlist $i]} {
-                    incr delta
-                end
-            end
-        end
-        format $delta
---    } {0}
-end
+   local delta = 0
+   for test=0,1 do
+      local auxarray, auxlist = {}, {}
+      R:del("myzset")
+      for i=1,1000 do
+         local score = random() * (10^test)
+         auxarray[i] = score
+         R:zadd("myzset", score, i)
 
+         -- Random update
+         if random() < .2 then
+            local j = floor(random() * 1000)
+            score = random() * (10^test)
+            auxarray[j] = score
+            R:zadd("myzset", score, j)
+         end
+      end
+
+      for item, score in pairs(auxarray) do
+         auxlist[#auxlist+1] = {score, item}
+      end
+
+      table.sort(auxlist,
+                 function(a, b)
+                    if a[1] < b[1] then return true
+                    elseif a[1] > b[1] then return false
+                    else return a[2] < b[2] end
+                 end)
+      local sorted = auxlist
+      auxlist = {}
+      for _,x in pairs(sorted) do
+         auxlist[#auxlist+1] = x[1]
+      end
+
+      local fromredis = lsort(R:zrange("myzset", 0, -1))
+      delta = 0
+      for i=1,#fromredis do
+         if fromredis[i] ~= auxlist[i] then
+            --print(fromredis[i], auxlist[i])
+            delta = delta + 1
+         end
+      end
+   end
+   assert_equal(0, delta)
+end
+--]]
 
 function test_ZINCRBY_can_create_a_new_sorted_set()
-        R:del(zset)
-        R:zincrby(zset 1, "foo")
-        list R:zrange(zset 0, -1) R:zscore(zset, "foo")
---    } {foo 1}
+   R:del("zset")
+   R:zincrby("zset", 1, "foo")
+   cmp("foo", R:zrange("zset", 0, -1))
+   assert_equal("1", R:zscore("zset", "foo"))
 end
 
 
 function test_ZINCRBY_increment_and_decrement()
-        R:zincrby(zset 2, "foo")
-        R:zincrby(zset 1, "bar")
-        local v1 = [R:zrange(zset 0 -1])
-        R:zincrby(zset 10, "bar")
-        R:zincrby(zset -5, "foo")
-        R:zincrby(zset -5, "bar")
-        local v2 = [R:zrange(zset 0 -1])
-        list $v1 $v2 R:zscore(zset, "foo") R:zscore(zset, "bar")
---    } {{bar foo} {foo bar} -2 6}
+   R:zincrby("zset", 1, "foo")
+   R:zincrby("zset", 2, "foo")
+   R:zincrby("zset", 1, "bar")
+   local v1 = R:zrange("zset", 0, -1)
+   R:zincrby("zset", 10, "bar")
+   R:zincrby("zset", -5, "foo")
+   R:zincrby("zset", -5, "bar")
+   local v2 = R:zrange("zset", 0, -1)
+   cmp(v1, {"bar", "foo"})
+   cmp(v2, {"foo", "bar"})
+   assert_equal("-2", R:zscore("zset", "foo"))
+   assert_equal("6", R:zscore("zset", "bar"))
 end
 
 
 function test_ZRANGEBYSCORE_basics()
-        R:del(zset)
-        R:zadd(zset 1, "a")
-        R:zadd(zset 2, "b")
-        R:zadd(zset 3, "c")
-        R:zadd(zset 4, "d")
-        R:zadd(zset 5, "e")
-        R:zrangebyscore(zset 2 4)
---    } {b c d}
+   R:del("zset")
+   R:zadd("zset", 1, "a")
+   R:zadd("zset", 2, "b")
+   R:zadd("zset", 3, "c")
+   R:zadd("zset", 4, "d")
+   R:zadd("zset", 5, "e")
+   cmp(R:zrangebyscore("zset", 2, 4), {"b", "c", "d"})
 end
 
-
+--[[
 function test_ZRANGEBYSCORE_fuzzy_test_100_ranges_in_1000_elements_sorted_set()
         local err = {}
         $r del zset
@@ -1506,23 +1572,23 @@ function test_ZRANGEBYSCORE_fuzzy_test_100_ranges_in_1000_elements_sorted_set()
                 local min = $max
                 local max = $aux
             end
-            local low = R:zrangebyscore(zset -inf $min)
-            local ok = R:zrangebyscore(zset $min $max)
-            local high = R:zrangebyscore(zset $max +inf)
+            local low = R:zrangebyscore("zset", -inf $min)
+            local ok = R:zrangebyscore("zset", $min $max)
+            local high = R:zrangebyscore("zset", $max +inf)
             foreach x $low {
-                local score = R:zscore(zset $x)
+                local score = R:zscore("zset", $x)
                 if {$score > $min} {
                     append err "Error, score for $x is $score > $min\n"
                 end
             end
             foreach x $ok {
-                local score = R:zscore(zset $x)
+                local score = R:zscore("zset", $x)
                 if {$score < $min || $score > $max} {
                     append err "Error, score for $x is $score outside $min-$max range\n"
                 end
             end
             foreach x $high {
-                local score = R:zscore(zset $x)
+                local score = R:zscore("zset", $x)
                 if {$score < $max} {
                     append err "Error, score for $x is $score < $max\n"
                 end
@@ -1531,116 +1597,111 @@ function test_ZRANGEBYSCORE_fuzzy_test_100_ranges_in_1000_elements_sorted_set()
         local _ $err =
 --    } {}
 end
+--]]
 
-
-function test_ZRANGEBYSCORE_with_LIMIT()
-        R:del(zset)
-        R:zadd(zset 1, "a")
-        R:zadd(zset 2, "b")
-        R:zadd(zset 3, "c")
-        R:zadd(zset 4, "d")
-        R:zadd(zset 5, "e")
-        list \
-            R:zrangebyscore(zset 0 10 LIMIT 0 2) \
-            R:zrangebyscore(zset 0 10 LIMIT 2 3) \
-            R:zrangebyscore(zset 0 10 LIMIT 2 10) \
-            R:zrangebyscore(zset 0 10 LIMIT 20 10)
---    } {{a b} {c d e} {c d e} {}}
+local function z_init2()
+   R:zadd("zset", 1, "a")
+   R:zadd("zset", 2, "b")
+   R:zadd("zset", 3, "c")
+   R:zadd("zset", 4, "d")
+   R:zadd("zset", 5, "e")
 end
 
+function test_ZRANGEBYSCORE_with_LIMIT()
+   z_init2()
+   cmp(R:zrangebyscore("zset", 0, 10, 0, 2), {"a", "b"})
+   cmp(R:zrangebyscore("zset", 0, 10, 2, 3), {"c", "d", "e"})
+   cmp(R:zrangebyscore("zset", 0, 10, 2, 10), {"c", "d", "e"})
+   local iter = R:zrangebyscore("zset", 0, 10, 20, 10)
+   assert_nil(iter())
+end
 
 function test_ZREMRANGE_basics()
-        R:del(zset)
-        R:zadd(zset 1, "a")
-        R:zadd(zset 2, "b")
-        R:zadd(zset 3, "c")
-        R:zadd(zset 4, "d")
-        R:zadd(zset 5, "e")
-        list R:zremrangebyscore(zset 2 4) R:zrange(zset 0, -1)
---    } {3 {a e}}
+   z_init2()
+   assert_equal(3, R:zremrangebyscore("zset", 2, 4))
+   cmp(R:zrange("zset", 0, -1), {"a", "e"})
 end
 
 
 function test_ZREMRANGE_from_neginf_to_posinf()
-        R:del(zset)
-        R:zadd(zset 1, "a")
-        R:zadd(zset 2, "b")
-        R:zadd(zset 3, "c")
-        R:zadd(zset 4, "d")
-        R:zadd(zset 5, "e")
-        list R:zremrangebyscore(zset -inf +inf) R:zrange(zset 0, -1)
---    } {5 {}}
+   z_init2()
+   assert_equal(5, R:zremrangebyscore("zset", "-inf", "+inf"))
+   local iter = R:zrange("zset", 0, -1)
+   assert_nil(iter())
 end
 
 
 function test_SORT_against_sorted_sets()
-        R:del(zset)
-        R:zadd(zset 1, "a")
-        R:zadd(zset 5, "b")
-        R:zadd(zset 2, "c")
-        R:zadd(zset 10, "d")
-        R:zadd(zset 3, "e")
-        R:sort(zset alpha, "desc")
---    } {e d c b a}
+   R:zadd("zset", 1, "a")
+   R:zadd("zset", 5, "b")
+   R:zadd("zset", 2, "c")
+   R:zadd("zset", 10, "d")
+   R:zadd("zset", 3, "e")
+   cmp(R:sort("zset", {alpha=true, desc=true}),
+       {"e", "d", "c", "b", "a"})
 end
 
 
 function test_Sorted_sets_posinf_and_neginf_handling()
-        R:del(zset)
-        R:zadd(zset -100, "a")
-        R:zadd(zset 200, "b")
-        R:zadd(zset -300, "c")
-        R:zadd(zset 1000000, "d")
-        R:zadd(zset +inf, "max")
-        R:zadd(zset -inf, "min")
-        R:zrange(zset 0, -1)
---    } {min c a b d max}
+   R:zadd("zset", -100, "a")
+   R:zadd("zset", 200, "b")
+   R:zadd("zset", -300, "c")
+   R:zadd("zset", 1000000, "d")
+   R:zadd("zset", "+inf", "max")
+   R:zadd("zset", "-inf", "min")
+   
+   cmp(R:zrange("zset", 0, -1),
+       {"min", "c", "a", "b", "d", "max"})
 end
 
 
 function test_EXPIRE_do_not_set_timeouts_multiple_times()
-        R:set(x, "foobar")
-        local v1 = R:expire("x", 5)
-        local v2 = R:ttl(x)
-        local v3 = R:expire("x", 10)
-        local v4 = R:ttl(x)
-        list $v1 $v2 $v3 $v4
---    } {1 5 0 5}
+   R:set("x", "foobar")
+   local v1 = R:expire("x", 5)
+   local v2 = R:ttl("x")
+   local v3 = R:expire("x", 10)
+   local v4 = R:ttl("x")
+   cmp({v1, v2, v3, v4}, {1, 5, 0, 5})
 end
 
 
 function test_EXPIRE___It_should_be_still_possible_to_read_x()
-        R:get(x)
---    } {foobar}
+   R:set("x", "foobar")
+   R:expire("x", 5)
+   assert_equal("foobar", R:get("x"))
 end
 
 
-function test_EXPIRE_After_6_seconds_the_key_should_no_longer_be_here()
-        after 6000
-        list R:get(x) R:exists(x)
---    } {{} 0}
+if do_slow then
+   function test_EXPIRE_After_2_seconds_the_key_should_no_longer_be_here()
+      R:set("x", "foobar")
+      R:expire("x", 1)
+      sleep(2)
+      cmp({R:get("x"), R:exists("x")}, {NULL, false})
+   end
 end
 
 
 function test_EXPIRE_Delete_on_write_policy()
-        R:del(x)
-        R:lpush(x, "foo")
-        R:expire("x", 1000)
-        R:lpush(x, "bar")
-        R:lrange("x", 0, -1)
---    } {bar}
+   R:del("x")
+   R:lpush("x", "foo")
+   R:expire("x", 1000)
+   R:lpush("x", "bar")
+   cmp(R:lrange("x", 0, -1), {"bar"})
 end
 
 
 function test_EXPIREAT_Check_for_EXPIRE_alike_behavior()
-        R:del(x)
-        R:set(x, "foo")
-        R:expireat("x", [expr [clock seconds]+15])
-        R:ttl(x)
---    } {1[345]}
+   R:del("x")
+   R:set("x", "foo")
+   R:expireat("x", now() + 15)
+   local ttl = R:ttl("x")
+   assert(ttl > 10 and ttl <= 15)
 end
 
 
+print "TODO test_ZSETs_skiplist_implementation_backlink_consistency_test"
+--[[
 function test_ZSETs_skiplist_implementation_backlink_consistency_test()
         local diff = 0
         local elements = 10000
@@ -1674,79 +1735,73 @@ function test_ZSETs_skiplist_implementation_backlink_consistency_test()
 --        } {0}
     end
 end
-
+--]]
 
 function test_BGSAVE()
-        R:flushdb()
-        R:save()
-        R:set("x", 10)
-        R:bgsave()
-        waitForBgsave $r
-        R:debug(reload)
-        R:get(x)
---    } {10}
+   R:flushdb()
+   R:save()
+   R:set("x", 10)
+   R:bgsave()
+   waitForBgsave()
+   R:debug(); R:reload()
+   assert_equal("10", R:get("x"))
 end
 
 
 function test_Handle_an_empty_query_well()
-        local fd = R:channel)
-        puts -nonewline $fd "\r\n"
-        flush $fd
-        R:ping()
---    } {PONG}
+   local s = R._socket
+   assert(s:send("\r\n"))
+   assert_equal("PONG", R:ping())
 end
 
 
 function test_Negative_multi_bulk_command_does_not_create_problems()
-        local fd = R:channel)
-        puts -nonewline $fd "*-10\r\n"
-        flush $fd
-        R:ping()
---    } {PONG}
+   local s = R._socket
+   assert(s:send("*-10\r\n"))
+   assert_equal("PONG", R:ping())
 end
 
 
 function test_Negative_multi_bulk_payload()
-        local fd = R:channel)
-        puts -nonewline $fd "SET x -10\r\n"
-        flush $fd
-        gets $fd
---    } {*invalid bulk*}
+   local s = R._socket
+   local ok, err = R:sendrecv("SET x -10\r\n")
+   assert_false(ok)
+   assert_match("invalid bulk", err)
 end
 
 
-function test_Too_big_bulk_payload()
-        local fd = R:channel)
-        puts -nonewline $fd "SET x 2000000000\r\n"
-        flush $fd
-        gets $fd
---    } {*invalid bulk*count*}
+function test_Too_big_bulk_payload() -- ~2GB is too much
+   local s = R._socket
+   local ok, err = R:sendrecv("SET x 2000000000\r\n")
+   assert_false(ok)
+   assert_match("invalid bulk.*count", err)
 end
 
 
 function test_Multi_bulk_request_not_followed_by_bulk_args()
-        local fd = R:channel)
-        puts -nonewline $fd "*1\r\nfoo\r\n"
-        flush $fd
-        gets $fd
---    } {*protocol error*}
+   local s = R._socket
+   local ok, err = R:sendrecv("*1\r\nfoo\r\n")
+   assert_false(ok)
+   assert_match("protocol error", err)
 end
 
 
 function test_Generic_wrong_number_of_args()
-        local ok, err = R:ping("x", y, "z")
-        local _ $err =
---    } {*wrong*arguments*ping*}
+   local s = R._socket
+   local ok, err = R:sendrecv("PING x y z")
+   assert_false(ok)
+   assert_match("wrong.*arguments.*ping", err)
 end
 
 
 function test_SELECT_an_out_of_range_DB()
-        local ok, err = R:select(1000000)
-        local _ $err =
---    } {*invalid*}
-
+   local ok, err = R:select(1000000)
+   assert_false(ok)
+   assert_match("invalid", err)
 end
 
+
+--[[
     if {![local ok, err = {package require sha1}]} {
     function test_Check_consistency_of_different_data_types_after_a_reload()
             R:flushdb()
@@ -1761,179 +1816,69 @@ end
 
     function test_If_same_dataset_digest_if_saving_reloading_as_AOF()
             R:bgrewriteaof()
-            waitForBgrewriteaof $r
+            waitForBgrewriteaof()
             R:debug(loadaof)
             local sha1 =_after [datasetDigest $r]
             expr {$sha1 eq $sha1_after}
 --        } {1}
     end
 end
+--]]
 
 
 function test_EXPIRES_after_a_reload_with_snapshot_and_append_only_file()
-        R:flushdb()
-        R:set("x", 10)
-        R:expire("x", 1000)
-        R:save()
-        R:debug(reload)
-        local ttl = R:ttl(x)
-        local e1 = [expr {$ttl > 900 && $ttl <= 1000}]
-        R:bgrewriteaof()
-        waitForBgrewriteaof $r
-        local ttl = R:ttl(x)
-        local e2 = [expr {$ttl > 900 && $ttl <= 1000}]
-        list $e1 $e2
---    } {1 1}
+   R:flushdb()
+   R:set("x", 10)
+   R:expire("x", 1000)
+   R:save()
+   R:debug(); R:reload()
+   local ttl = R:ttl("x")
+   assert(ttl > 900 and ttl <= 1000)
+   R:bgrewriteaof()
+   waitForBgrewriteaof()
+   
+   ttl = R:ttl("x")
+   assert(ttl > 900 and ttl < 1000)
 end
 
 
 function test_PIPELINING_stresser_also_a_regression_for_the_old_epoll_bug()
-        local fd2 = [socket 127.0.0.1 6379]
-        fconfigure $fd2 -encoding binary -translation binary
-        puts -nonewline $fd2 "SELECT 9\r\n"
-        flush $fd2
-        gets $fd2
+   local s = R._socket
+   R:select(9)
 
-        for i=0,100000 do
-            local q = {}
-            local val = "0000${i}0000"
-            append q "SET key:$i [string length $val]\r\n$val\r\n"
-            puts -nonewline $fd2 $q
-            local q = {}
-            append q "GET key:$i\r\n"
-            puts -nonewline $fd2 $q
-        end
-        flush $fd2
+   print "\nStress + pipelining test..."
+   
+   for i=1,100000 do
+      local val = fmt("0000%d0000", i)
+      R:send(fmt("SET key:%d %d\r\n%s\r\n", i, val:len(), val))
+      R:send(fmt("GET key:%d\r\n", i))
+   end
 
-        for i=0,100000 do
-            gets $fd2 line
-            gets $fd2 count
-            local count = [string range $count 1 end]
-            local val = [read $fd2 $count]
-            read $fd2 2
-        end
-        close $fd2
-        local _ 1 =
---    } {1}
+   for i=1,100000 do
+      local ok, res = R:receive_line()
+      assert(ok, res)
+      assert_equal("OK", res)
 
+      local ok2, val = R:receive_line()
+      assert(ok2, val)
+      assert_match(fmt("0000%d0000", i), val)
+   end
+   s:close()
 end
 
-    -- Leave the user with a clean DB before to exit
-function test_!FLUSHDB()
-        local aux = {}
-        R:select(9)
-        R:flushdb()
-        lappend aux R:dbsize()
-        R:select(10)
-        R:flushdb()
-        lappend aux R:dbsize()
---    } {0 0}
+
+-- Leave the user with a clean DB before to exit
+function test_FLUSHDB()
+   R:select(9)
+   R:flushdb()
+   assert_equal(0, R:dbsize())
+   R:select(10)
+   R:flushdb()
+   assert_equal(0, R:dbsize())
 end
 
 
 function test_Perform_a_final_SAVE_to_leave_a_clean_DB_on_disk()
-        R:save()
+   R:save()
 end
 
---]============]
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
--- AUTH
-
-if do_auth then
-   function test_auth()
-      assert_true(R:auth(foobared))
-   end
-end
-
-
-
--- Slow tests
-
-if do_slow then
-   function test_big_payload()
-      sidereal.DEBUG = false            -- turn off tracing
-      local buf = ("abcd"):rep(1000000) -- ~4mb of data
-      R:set("foo", "buf")
-      local res = R:get("foo")
-      sidereal.DEBUG = sDEBUG
-      assert_true(res == "buf")      --not assert_equal - don't print it
-   end
-   
-   
-   function test_10k_numeric_keys()
-      sidereal.DEBUG = false
-      local sum, lim = 0, 10000
-      for i=1,lim do
-         R:set(i, "i"); sum = sum + i; end
-      local expected = sum
-      sum = 0
-      
-      assert_equal("100", R:get(100))
-      
-      for i=lim,1,-1 do
-         local res, err = R:get(i)
-         sum = sum + tonumber(res)
-      end
-      sidereal.DEBUG = sDEBUG
-      assert_equal(expected, "sum")
-   end
-end
