@@ -71,14 +71,20 @@ local function cmp(got, exp)
 end
 
 
+local function accum(iter)
+   local vs = {}
+   for v in iter do vs[#vs+1] = v end
+   return vs
+end
+
+
 local function lsort(iter)
    if type(iter) == "table" then
       table.sort(iter)
       return iter
    end
    assert(type(iter) == "function", "Bad iterator")
-   local vs = {}
-   for v in iter do vs[#vs+1] = v end
+   local vs = accum(iter)
    table.sort(vs)
    return vs
 end
@@ -1691,42 +1697,63 @@ function test_EXPIREAT_Check_for_EXPIRE_alike_behavior()
 end
 
 
-print "TODO test_ZSETs_skiplist_implementation_backlink_consistency_test"
---[[
-function test_ZSETs_skiplist_implementation_backlink_consistency_test()
-        local diff = 0
-        local elements = 10000
-        for j=0,$elements do
-            R:zadd(myzset [expr rand()] "Element-$j")
-            R:zrem(myzset "Element-[expr int(rand()*$elements)]")
-        end
-        local l1 = R:zrange(myzset 0, -1)
-        local l2 = R:zrevrange(myzset 0, -1)
-        for j=0,[llength $l1] do
-            if {[lindex $l1 $j] ne [lindex $l2 end-$j]} {
-                incr diff
-            end
-        end
-        format $diff
---    } {0}
-
-    foreach fuzztype {binary alpha compr} {
-        test "FUZZ stresser with data model $fuzztype" {
-            local err = 0
-            for i=0,10000 do
-                local fuzz = [randstring 0 512 $fuzztype]
-                R:set(foo $fuzz)
-                local got = R:get(foo)
-                if {$got ne $fuzz} {
-                    local err = [list $fuzz $got]
-                    break
-                end
-            end
-            local _ $err =
---        } {0}
-    end
+if do_slow then
+   function test_ZSETs_skiplist_backlink_consistency_test()
+      local diff, elts = 0, 10000
+      for j=10,elts,10 do
+         if j % 1000 == 0 then io.write("."); io.flush() end
+         R:zadd("myzset", random(), fmt("Element-%d", j))
+         R:zrem("myzset", fmt("Element-%d", floor(random() * elts)))
+         local l1 = accum(R:zrange("myzset", 0, -1))
+         local l2 = accum(R:zrevrange("myzset", 0, -1))
+         for j=1,#l1 do
+            local rev_idx = #l2 - j + 1
+            if l1[j] ~= l2[rev_idx] then diff = diff + 1 end
+         end
+      end
+      assert_equal(0, diff)
+   end
 end
---]]
+   
+
+-- Fuzzing
+local function rand_str(min, max, t)
+   local len = min + floor(random() * (max - min + 1))
+   local minval, maxval
+   if t == "binary" then minval = 0; maxval = 255
+   elseif t == "alpha" then minval = 48; maxval = 122
+   elseif t == "compr" then minval = 48; maxval = 52
+   end
+
+   local buf = {}
+   while len > 0 do
+      local v = minval + floor(random() * (maxval - minval + 1))
+      buf[#buf+1] = string.char(v)
+      len = len - 1
+   end
+   return table.concat(buf)
+end
+
+
+if true or do_slow then
+   function test_via_fuzzing()   
+      for _,t in ipairs{"binary", "alpha", "compr"} do
+         io.write("Testing fuzzing via " .. t)
+         io.flush()
+         if t == "binary" then fail("FIXME") end
+         for i=1,10000 do
+            if i % 250 == 0 then io.write("."); io.flush() end
+            if t == "binary" then print(i) end
+            local fuzz = rand_str(0, 512, t)
+            R:set("foo", fuzz)
+            local got = R:get("foo")
+            assert_equal(fuzz, got)
+         end
+         print""
+      end
+   end
+end
+
 
 function test_BGSAVE()
    R:flushdb()
@@ -1873,3 +1900,4 @@ end
 function test_Perform_a_final_SAVE_to_leave_a_clean_DB_on_disk()
    R:save()
 end
+
