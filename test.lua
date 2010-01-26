@@ -21,7 +21,7 @@ module("tests", lunit.testcase, package.seeall)
 local fmt, floor, random = string.format, math.floor, math.random
 math.randomseed(os.time())
 
-local do_slow, do_auth = false, false
+local do_slow, do_auth = true, false
 
 
 -- for locally overriding the debug flag
@@ -215,7 +215,7 @@ function test_keys2()
    setkeys("hello", {"key_x", "key_y", "key_z", "foo_a", "foo_b", "foo_c"})
 
    local res = R:keys("key*", true)
-   if not res then fail() end
+   assert(res)
    assert_equal("key_x key_y key_z", res)
 end
 
@@ -807,7 +807,7 @@ function test_LTRIM_stress_testing()
          l[#l+1] = v
       end
       for i=a,b do
-         if mylist[i] ~= l[i] then fail() end
+         assert_equal(mylist[i], l[i])
       end
    end
 end
@@ -1040,136 +1040,6 @@ local function test_SRANDMEMBER() -- FIXME
 end
 
     
-print "TODO: SORTING COMMANDS"
---[[
-function test_Create_a_random_list_and_a_random_set()
-   local tosort = {}
-   local seenrand = {}
-   for i=0,9999 do
-      while true do
-         -- Make sure all the weights are different.
-         -- (Neither Redis nor Lua uses a stable sort.)
-         randpath {
-            local rint = [expr int(rand()*1000000)]
-            --                } {
-            local rint = [expr rand()]
-         end
-         if {![info exists seenrand($rint)]} break
-      end
-      local seenrand =($rint) x
-      R:lpush(tosort $i)
-      R:sadd(tosort-set $i)
-      R:set(weight_$i $rint)
-      lappend tosort [list $i $rint]
-   end
-   local sorted = [lsort -index 1 -real $tosort]
-   local res = {}
-   for i=0,10000 do
-      res[#res+1] = [lindex $sorted $i 0]
-   end
-   format {}
-   --    } {}
-end
-
-
-function test_SORT_with_BY_against_the_newly_created_list()
-   R:sort("tosort", {by="weight_*"})
-        R:sort(tosort {BY weight_*})
-    } $res
-end
-
-
-function test_the_same_SORT_with_BY,_but_against_the_newly_created_set()
-        R:sort(tosort-set {BY weight_*})
-    } $res
-end
-
-
-function test_SORT_with_BY_and_STORE_against_the_newly_created_list()
-        R:sort(tosort {BY weight_*} store sort-res)
-        R:lrange(sort-res 0, -1)
-    } $res
-end
-
-
-function test_SORT_direct,_numeric,_against_the_newly_created_list()
-        R:sort(tosort)
-    } [lsort -integer $res]
-end
-
-
-function test_SORT_decreasing_sort()
-        R:sort(tosort {DESC})
-    } [lsort -decreasing -integer $res]
-end
-
-
-function test_SORT_speed,_sorting_10000_elements_list_using_BY,_100_times()
-        local start = [clock clicks -milliseconds]
-        for i=0,100 do
-            local sorted = R:sort(tosort {BY weight_* LIMIT 0 10})
-        end
-        local elapsed = [expr [clock clicks -milliseconds]-$start]
-        puts -nonewline "\n  Average time to sort: [expr double($elapsed)/100] milliseconds "
-        flush stdout
-        format {}
---    } {}
-end
-
-
-function test_SORT_speed,_sorting_10000_elements_list_directly,_100_times()
-        local start = [clock clicks -milliseconds]
-        for i=0,100 do
-            local sorted = R:sort(tosort {LIMIT 0 10})
-        end
-        local elapsed = [expr [clock clicks -milliseconds]-$start]
-        puts -nonewline "\n  Average time to sort: [expr double($elapsed)/100] milliseconds "
-        flush stdout
-        format {}
---    } {}
-end
-
-
-function test_SORT_speed,_pseudo-sorting_10000_elements_list,_BY_<const>,_100_times()
-        local start = [clock clicks -milliseconds]
-        for i=0,100 do
-            local sorted = R:sort(tosort {BY nokey LIMIT 0 10})
-        end
-        local elapsed = [expr [clock clicks -milliseconds]-$start]
-        puts -nonewline "\n  Average time to sort: [expr double($elapsed)/100] milliseconds "
-        flush stdout
-        format {}
---    } {}
-end
-
-
-function test_SORT_regression_for_issue_#19,_sorting_floats()
-        R:flushdb()
-        foreach x {1.1 5.10 3.10 7.44 2.1 5.75 6.12 0.25 1.15} {
-            R:lpush("mylist" $x)
-        end
-        R:sort("mylist")
-    } [lsort -real {1.1 5.10 3.10 7.44 2.1 5.75 6.12 0.25 1.15}]
-end
-
-
-function test_SORT_with_GET_ns {
-        R:del("mylist")
-        R:lpush("mylist" 1)
-        R:lpush("mylist" 2)
-        R:lpush("mylist" 3)
-        R:mset(weight_1 10 weight_2 5 weight_3 30)
-        R:sort("mylist" BY weight_* GET #)
-    }()2 1 3}
-end
-
-
-function test_SORT_with_constant_GET()
-        R:sort("mylist" GET, "foo")
---    } {{} {} {}}
-end
---]]
-
 local function lrem_setup()
    for _,v in ipairs{"foo", "bar", "foobar", "foobared",
                      "zap", "bar", "test", "foo" } do
@@ -1716,45 +1586,6 @@ if do_slow then
 end
    
 
--- Fuzzing
-local function rand_str(min, max, t)
-   local len = min + floor(random() * (max - min + 1))
-   local minval, maxval
-   if t == "binary" then minval = 0; maxval = 255
-   elseif t == "alpha" then minval = 48; maxval = 122
-   elseif t == "compr" then minval = 48; maxval = 52
-   end
-
-   local buf = {}
-   while len > 0 do
-      local v = minval + floor(random() * (maxval - minval + 1))
-      buf[#buf+1] = string.char(v)
-      len = len - 1
-   end
-   return table.concat(buf)
-end
-
-
-if true or do_slow then
-   function test_via_fuzzing()   
-      for _,t in ipairs{"binary", "alpha", "compr"} do
-         io.write("Testing fuzzing via " .. t)
-         io.flush()
-         if t == "binary" then fail("FIXME") end
-         for i=1,10000 do
-            if i % 250 == 0 then io.write("."); io.flush() end
-            if t == "binary" then print(i) end
-            local fuzz = rand_str(0, 512, t)
-            R:set("foo", fuzz)
-            local got = R:get("foo")
-            assert_equal(fuzz, got)
-         end
-         print""
-      end
-   end
-end
-
-
 function test_BGSAVE()
    R:flushdb()
    R:save()
@@ -1819,30 +1650,161 @@ function test_SELECT_an_out_of_range_DB()
 end
 
 
-print "TODO test_Check_consistency_of_different_data_types_after_a_reload"
---[[
-    if {![local ok, err = {package require sha1}]} {
-    function test_Check_consistency_of_different_data_types_after_a_reload()
-            R:flushdb()
-            createComplexDataset $r 10000
-            local sha1 = [datasetDigest $r]
-            R:debug(reload)
-            local sha1 =_after [datasetDigest $r]
-            expr {$sha1 eq $sha1_after}
---        } {1}
+function rlist_and_rset_setup(lim)
+   local lim = lim or 10000
+   local tosort = {}
+   local seenrand = {}
+   for i=1,lim do
+      -- Make sure all the weights are different.
+      -- (Neither Redis nor Lua uses a stable sort.)
+      local rint = floor(random() * 1000000)
+      if seenrand[rint] then break end
+      seenrand[rint] = x
+
+      R:lpush("tosort", i)
+      R:sadd("tosort-set", i)
+      R:set("weight_" .. tostring(i), rint)
+      tosort[#tosort+1] = {i, rint}
+   end
+
+   table.sort(tosort, function(a, b) return a[2] < b[2] end)
+   local sorted = tosort
+   local res = {}
+   for i=1,lim do
+      res[#res+1] = tostring(sorted[i][1])
+   end
+   return res, tosort
 end
 
 
-    function test_If_same_dataset_digest_if_saving_reloading_as_AOF()
-            R:bgrewriteaof()
-            waitForBgrewriteaof()
-            R:debug(loadaof)
-            local sha1 =_after [datasetDigest $r]
-            expr {$sha1 eq $sha1_after}
---        } {1}
-    end
+function test_SORT_with_BY_against_the_newly_created_list()
+   local res = rlist_and_rset_setup()
+   cmp(R:sort("tosort", { by="weight_*" }), res)
 end
---]]
+
+
+function test_the_same_SORT_with_BY_but_against_the_newly_created_set()
+   local res = rlist_and_rset_setup()
+   cmp(R:sort("tosort-set", { by="weight_*"}), res)
+end
+
+
+function test_SORT_with_BY_and_STORE_against_the_newly_created_list()
+   local res, res2 = rlist_and_rset_setup(100)
+   R:sort("tosort", { by="weight_*", store="sort-res"})
+   cmp(R:lrange("sort-res", 0, -1), res)
+end
+
+
+function test_SORT_direct_numeric_against_the_newly_created_list()
+   local res = rlist_and_rset_setup()
+   cmp(R:sort("tosort"), lsort(res))
+end
+
+
+function test_SORT_decreasing_sort()
+   local res = rlist_and_rset_setup()
+   local rres = {}
+   for i=#res,1,-1 do rres[i] = res[i] end
+   cmp(R:sort("tosort", { dsc=true}), rres)
+end
+
+
+function test_SORT_speed_sorting_10000_elements_list_using_BY_100_times()
+   local start, ct = now(), 1000
+   for i=1,ct do
+      local sorted = R:sort("tosort", { by="weight_*", start=0, count=10 })
+   end
+   local avg_ms = ((now() - start) * 1000)/ct
+   print(fmt("\n  Average time to sort: %.3f milliseconds", avg_ms))
+end
+
+
+function test_SORT_speed_sorting_10000_elements_list_directly_100_times()
+   local start, ct = now(), 1000
+   for i=1,ct do
+      local sorted = R:sort("tosort", { start=0, count=10 })
+   end
+   local avg_ms = ((now() - start) * 1000)/ct
+   print(fmt("\n  Average time to sort: %.3f milliseconds", avg_ms))
+end
+
+
+function test_SORT_speed_pseudo_sorting_10000_elements_list_BY_const_100_times()
+   local start, ct = now(), 1000
+   for i=1,ct do
+      local sorted = R:sort("tosort", { by="nokey", start=0, count=10 })
+   end
+   local avg_ms = ((now() - start) * 1000)/ct
+   print(fmt("\n  Average time to sort: %.3f milliseconds", avg_ms))
+end
+
+
+function test_SORT_regression_for_issue_19_sorting_floats()
+   R:flushdb()
+   local nums = {1.1, 5.10, 3.10, 7.44, 2.1, 5.75, 6.12, 0.25, 1.15}
+   for _,x in ipairs(nums) do R:lpush("mylist", x) end
+   table.sort(nums)
+   cmp(R:sort("mylist"), nums)
+end
+
+
+function test_SORT_with_GET_ns()
+   R:lpush("mylist", 1)
+   R:lpush("mylist", 2)
+   R:lpush("mylist", 3)
+   R:mset({ weight_1=10, weight_2=5, weight_3=30 })
+   cmp(R:sort("mylist", { by="weight_*", get="#" }),
+       {2, 1, 3})
+end
+
+
+function test_SORT_with_constant_GET()
+   R:lpush("mylist", 1)
+   R:lpush("mylist", 2)
+   R:lpush("mylist", 3)
+   cmp(R:sort("mylist", { get="foo"}),
+       { NULL, NULL, NULL })
+end
+
+
+-- Fuzzing
+local function rand_str(min, max, t)
+   local len = min + floor(random() * (max - min + 1))
+   local minval, maxval
+   if t == "binary" then minval = 0; maxval = 255
+   elseif t == "alpha" then minval = 48; maxval = 122
+   elseif t == "compr" then minval = 48; maxval = 52
+   end
+
+   local buf = {}
+   while len > 0 do
+      local v = minval + floor(random() * (maxval - minval + 1))
+      buf[#buf+1] = string.char(v)
+      len = len - 1
+   end
+   return table.concat(buf)
+end
+
+
+if true or do_slow then
+   function test_via_fuzzing()   
+      for _,t in ipairs{"binary", "alpha", "compr"} do
+         io.write("Testing fuzzing via " .. t)
+         io.flush()
+         if t == "binary" then fail("FIXME") end
+         for i=1,10000 do
+            if i % 250 == 0 then io.write("."); io.flush() end
+            if t == "binary" then print(i) end
+            local fuzz = rand_str(0, 512, t)
+            R:set("foo", fuzz)
+            local got = R:get("foo")
+            assert_equal(fuzz, got)
+         end
+         print""
+      end
+   end
+end
 
 
 function test_EXPIRES_after_a_reload_with_snapshot_and_append_only_file()
@@ -1900,4 +1862,3 @@ end
 function test_Perform_a_final_SAVE_to_leave_a_clean_DB_on_disk()
    R:save()
 end
-

@@ -520,21 +520,25 @@ cmd("RELOAD", nil, "???")
 -- SORT key [BY pattern] [LIMIT start count] [GET pattern] [ASC|DESC] [ALPHA] [STORE dstkey]
 -- use e.g. r:sort("key", { start=10, count=25, alpha=true })
 function Connection:sort(key, t)
+   t = t or {}
    local by = t.by
-   local start, count = t.start, t.count
-   local pattern = t.by
+   local start, count = t.start, t.count    --"start" could instead be "offset"
+   local get = t.get
    local asc, desc, alpha = t.asc, t.desc, t.alpha --ASC is default
-   local dstkey = t.dstkey
+   local store = t.store
 
    assert(not(asc and desc), "ASC and DESC are mutually exclusive")
    local b = {}
 
    b[1] = fmt("SORT %s", tostring(key))
-   if pattern then b[#b+1] = fmt("BY %s", pattern) end
+   if by then b[#b+1] = fmt("BY %s", by) end
    if start and count then b[#b+1] = fmt("LIMIT %d %d", start, count) end
+   if get then b[#b+1] = fmt("GET %s", get) end
    if asc then b[#b+1] = "ASC" elseif desc then b[#b+1] = "DESC" end
    if alpha then b[#b+1] = "ALPHA" end
-   if dstkey then b[#b+1] = fmt("STORE %s", dstkey) end
+   if store then b[#b+1] = fmt("STORE %s", store) end
    
+   trace("-- SORTING:", concat(b, " "))
+
    return self:sendrecv(concat(b, " "), result_handler) 
 end
