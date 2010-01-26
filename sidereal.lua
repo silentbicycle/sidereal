@@ -86,6 +86,8 @@ function connect(host, port, pass_hook)
       error(fmt("Could not connect to %s port %d.", host, port)) 
    end
 
+   s:setoption("tcp-nodelay", true) --disable nagle's algorithm
+
    local conn = { _socket = s, 
                   host = host,
                   port = port,
@@ -123,7 +125,8 @@ end
 ---Send a command and return the response.
 function Connection:sendrecv(cmd, to_bool)
    trace("SEND:", cmd)
-   self._socket:send(cmd .. "\r\n")
+   local ok, err = self._socket:send(cmd .. "\r\n")
+   if not ok then return false, err end
    return self:receive_line(to_bool)
 end
 
@@ -271,20 +274,22 @@ local formatter = {
    simple = function(x) return tostring(x) end,
    bulk = function(x)
              local s = tostring(x)
-             return fmt("%d\r\n%s\r\n", s:len(), s)
+             --while simpler, string.format("%s") uses null-terminated strings
+             return table.concat{ fmt("%d\r\n", s:len()), s, "\r\n" }
           end,
    bulklist = function(array)
                  if type(array) ~= "table" then array = { array } end
                  return concat(array, " ")
               end,
    table = function(t)
-              local b = {}
+              local buf = {}    --whole message buffer
               for k,v in pairs(t) do
                  v = tostring(v)
-                 b[#b+1] = fmt("$%d\r\n%s\r\n$%d\r\n%s\r\n",
-                               k:len(), k, v:len(), v)
+                 local b = { "$", tostring(k:len()), "\r\n", k, "\r\n",
+                             "$", tostring(v:len()), "\r\n", v, "|r\n" }
+                 buf[#buf+1] = concat(b)
               end
-              return b
+              return buf
            end
 }
 
@@ -366,7 +371,8 @@ local function cmd(rfun, arg_types, doc, opts)
             if not arglist then return false, err end
             
             if self.DEBUG then check(arglist) end
-            send = fmt("%s %s", rfun, concat(arglist, " "))
+            local b = { rfun, " ", concat(arglist, " ")}
+            send = concat(b)
          end
 
          if opts.pre_hook then send = opts.pre_hook(raw_args, send) end

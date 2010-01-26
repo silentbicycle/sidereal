@@ -19,6 +19,7 @@ local nonblocking, trace_nb = true, false
 
 module("tests", lunit.testcase, package.seeall)
 local fmt, floor, random = string.format, math.floor, math.random
+
 math.randomseed(os.time())
 
 local do_slow, do_auth = true, false
@@ -38,12 +39,14 @@ local fmt, floor, random = string.format, math.floor, math.random
 local R                         --the Redis connection
 
 local pass_ct = 0
+local function sleep(secs) socket.select(nil, nil, secs) end
 
 function setup()
    local pass
    if nonblocking then
       pass = function()
                 pass_ct = pass_ct + 1
+                sleep(0.0000000001)    --don't busywait
                 if trace_nb then print(" -- pass", pass_ct) end
              end
    end
@@ -104,7 +107,6 @@ local function luniq(s1, s2)
 end
 
 
-local function sleep(secs) socket.select(nil, nil, secs) end
 local function now() return socket.gettime() end
 
 
@@ -142,6 +144,7 @@ end
 -----------
 
 local NULL = sidereal.NULL
+
 
 function test_cleandb()
    assert_equal("OK", R:flushdb())
@@ -1787,21 +1790,23 @@ local function rand_str(min, max, t)
 end
 
 
-if true or do_slow then
+if do_slow then
    function test_via_fuzzing()   
-      for _,t in ipairs{"binary", "alpha", "compr"} do
+      for _,t in ipairs{"binary", "alpha", "compr", "binary(regression)"} do
          io.write("Testing fuzzing via " .. t)
          io.flush()
-         if t == "binary" then fail("FIXME") end
+         if t == "binary(regression)" then
+            math.randomseed(10)    --binary str was previously truncated
+            t = "binary"
+         end
          for i=1,10000 do
             if i % 250 == 0 then io.write("."); io.flush() end
-            if t == "binary" then print(i) end
             local fuzz = rand_str(0, 512, t)
             R:set("foo", fuzz)
             local got = R:get("foo")
             assert_equal(fuzz, got)
          end
-         print""
+         print ""
       end
    end
 end
@@ -1862,3 +1867,4 @@ end
 function test_Perform_a_final_SAVE_to_leave_a_clean_DB_on_disk()
    R:save()
 end
+
