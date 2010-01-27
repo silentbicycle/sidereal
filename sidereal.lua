@@ -24,13 +24,11 @@
 
 ------------------------------------------------------------------------
 -- TODO
--- * finish converting test suite
--- * LuaDoc stubs for generated commands?
+-- * handle auto-reconnecting
+-- * LuaDoc stubs for generated commands
 -- * foundation for consistent hashing?
 -- * profile and tune
--- * handle auto-reconnecting
--- * better high-level handling of sets (as a { key=true } table
--- * maybe create a simple proxy object w/ __index and __newindex
+-- * create a simple proxy w/ __index & __newindex -> k/v, list, set ops
 ------------------------------------------------------------------------
 
 
@@ -123,11 +121,11 @@ end
 
 
 ---Send a command and return the response.
-function Connection:sendrecv(cmd, to_bool)
+function Connection:sendrecv(cmd)
    trace("SEND:", cmd)
    local ok, err = self._socket:send(cmd .. "\r\n")
    if not ok then return false, err end
-   return self:receive_line(to_bool)
+   return self:receive_line()
 end
 
 
@@ -136,12 +134,12 @@ end
 ---------------
 
 ---Read and handle response, passing if necessary.
-function Connection:receive_line(to_bool)
+function Connection:receive_line()
    local ok, line = self:receive("*l")
    trace("RECV: ", ok, line)
    if not ok then return false, line end
    
-   return self:handle_response(line, to_bool)
+   return self:handle_response(line)
 end
 
 
@@ -183,10 +181,10 @@ end
 ---Return an interator for N bulk responses.
 function Connection:bulk_multi_receive(count)
    local ct = count
-   local queue = {}
+   local rs = {}                --results
    trace(" * BULK_MULTI_RECV, ct=", count)
 
-   -- Read and queue all responses, so pipelining works.
+   -- Read and rs all responses, so pipelining works.
    for i=1,ct do
       local ok, read = self:receive("*l")
       if not ok then return false, read end
@@ -200,15 +198,15 @@ function Connection:bulk_multi_receive(count)
       end
       trace(" -- BULK_READ: ", ok, read)
       if not ok then return false, read end
-      queue[i] = read
+      rs[i] = read
    end
 
-
+   if true then return true, rs end
    local iter = coroutine.wrap(
       function()
          for i=1,ct do
-            trace("-- Bulk_multi_val: ", queue[i])
-            coroutine.yield(queue[i])
+            trace("-- Bulk_multi_val: ", rs[i])
+            coroutine.yield(rs[i])
          end
       end)
    return true, iter
@@ -216,7 +214,7 @@ end
 
 
 ---Handle response lines.
-function Connection:handle_response(line, to_bool)
+function Connection:handle_response(line)
    assert(type(line) == "string" and line:len() > 0, "Bad response")
    local r = line:sub(1, 1)
 
@@ -226,11 +224,7 @@ function Connection:handle_response(line, to_bool)
       return false, line:match("-ERR (.*)")
    elseif r == ":" then         -- :integer (incl. 0 & 1 for false,true)
       local num = tonumber(line:sub(2))
-      if to_bool then
-         return true, num == 1 
-      else
-         return true, num
-      end
+      return true, num
    elseif r == "$" then         -- $4\r\nbulk\r\n
       local len = assert(tonumber(line:sub(2)), "Bad length")
       if len == -1 then
@@ -278,6 +272,7 @@ local formatter = {
              return table.concat{ fmt("%d\r\n", s:len()), s, "\r\n" }
           end,
    bulklist = function(array)
+                 error("KILL THIS")
                  if type(array) ~= "table" then array = { array } end
                  return concat(array, " ")
               end,
@@ -307,7 +302,7 @@ local types = { k={ "key", formatter.simple, typetest.str },
                 T={ "table", formatter.table, typetest.table },
                 s={ "start", formatter.simple, typetest.int },
                 e={ "end", formatter.simple, typetest.int },
-                m={ "member", formatter.bulk, typetest.todo },      -- FIXME, key???
+                m={ "member", formatter.bulk, typetest.todo },
              }
 
 
@@ -376,7 +371,7 @@ local function cmd(rfun, arg_types, doc, opts)
          end
 
          if opts.pre_hook then send = opts.pre_hook(raw_args, send) end
-         local ok, res = self:sendrecv(send, opts.to_bool)
+         local ok, res = self:sendrecv(send)
          if ok then
             if opts.post_hook then return opts.post_hook(raw_args, res) end
             return res
@@ -384,6 +379,23 @@ local function cmd(rfun, arg_types, doc, opts)
             return false, res
          end
       end
+end
+
+
+-----------
+-- Hooks --
+-----------
+
+local function num_to_bool(r_a, res)
+   if type(res) == "number" then return res == 1 end
+   return res
+end
+
+
+local function list_to_set(r_a, res)
+   local set = {}
+   for _,k in ipairs(res) do set[k] = true end
+   return set
 end
 
 
@@ -396,25 +408,27 @@ cmd("QUIT", nil, "Close the connection")
 cmd("AUTH", "k", "Simple password authentication if enabled")
 
 -- Commands operating on all the kind of values
-cmd("EXISTS", "k", "Test if a key exists", { to_bool=true })
+cmd("EXISTS", "k", "Test if a key exists", { post_hook=num_to_bool })
 cmd("DEL", "K", "Delete a key")
 cmd("TYPE", "k", "Return the type of the value stored at key")
 cmd("KEYS", "p", "Return an iterator listing all keys matching a given pattern",
     { post_hook =
       function(raw_args, res)
          if raw_args[2] then return res end
-         return string.gmatch(res, "([^ ]+)")
+         local ks = {}
+         for k in string.gmatch(res, "([^ ]+)") do ks[#ks+1] = k end
+         return ks
       end})
 cmd("RANDOMKEY", nil, "Return a random key from the key space")
 cmd("RENAME", "kk", "Rename the old key in the new one, destroing the newname key if it already exists")
 cmd("RENAMENX", "kk", "Rename the old key in the new one, if the newname key does not already exist")
 cmd("DBSIZE", nil, "Return the number of keys in the current db")
-cmd("EXPIRE", "kt", "Set a time to live in seconds on a key")   --???
-cmd("EXPIREAT", "kt", "Set a time to live in seconds on a key") --???
+cmd("EXPIRE", "kt", "Set relative a time to live in seconds on a key")
+cmd("EXPIREAT", "kt", "Set absolute time to live in seconds on a key")
 cmd("TTL", "k", "Get the time to live in seconds of a key")
 cmd("SELECT", "d", "Select the DB having the specified index")
 cmd("MOVE", "kd", "Move the key from the currently selected DB to the DB having as index dbindex",
-    { to_bool=true })
+    { post_hook=num_to_bool })
 cmd("FLUSHDB", nil, "Remove all the keys of the currently selected DB")
 cmd("FLUSHALL", nil, "Remove all the keys from all the databases")
 
@@ -423,11 +437,11 @@ cmd("SET", "kv", "Set a key to a string value")
 cmd("GET", "k", "Return the string value of the key")
 cmd("GETSET", "kv", "Set a key to a string returning the old value of the key")
 cmd("MGET", "K", "Multi-get, return the strings values of the keys")
-cmd("SETNX", "kv", "Set a key to a string value if the key does not exist", { to_bool=true })
+cmd("SETNX", "kv", "Set a key to a string value if the key does not exist", { post_hook=num_to_bool })
 cmd("MSET", "T", "Set a multiple keys to multiple values in a single atomic operation",
-    { to_bool=true })
+    { post_hook=num_to_bool })
 cmd("MSETNX", "T", "Set a multiple keys to multiple values in a single atomic operation if none of the keys already exist",
-    { to_bool=true })
+    { post_hook=num_to_bool })
 cmd("INCR", "k", "Increment the integer value of key")
 cmd("INCRBY", "ki", "Increment the integer value of key by integer")
 cmd("DECR", "k", "Decrement the integer value of key")
@@ -448,21 +462,25 @@ cmd("RPOPLPUSH", "kk", "Return and remove (atomically) the last element of the s
 
 -- Commands operating on sets
 cmd("SADD", "km", "Add the specified member to the Set value at key",
-    { to_bool=true })
+    { post_hook=num_to_bool })
 cmd("SREM", "km", "Remove the specified member from the Set value at key",
-    { to_bool=true })
+    { post_hook=num_to_bool })
 cmd("SPOP", "k", "Remove and return (pop) a random element from the Set value at key")
 cmd("SMOVE", "kkm", "Move the specified member from one Set to another atomically")
 cmd("SCARD", "k", "Return the number of elements (the cardinality) of the Set at key")
 cmd("SISMEMBER", "km", "Test if the specified value is a member of the Set at key",
-    { to_bool=true })
-cmd("SINTER", "K", "Return the intersection between the Sets stored at key1, key2, ..., keyN")
+    { post_hook=num_to_bool })
+cmd("SINTER", "K", "Return the intersection between the Sets stored at key1, key2, ..., keyN",
+    { post_hook=list_to_set })
 cmd("SINTERSTORE", "kK", "Compute the intersection between the Sets stored at key1, key2, ..., keyN, and store the resulting Set at dstkey")
-cmd("SUNION", "K", "Return the union between the Sets stored at key1, key2, ..., keyN")
+cmd("SUNION", "K", "Return the union between the Sets stored at key1, key2, ..., keyN",
+    { post_hook=list_to_set })
 cmd("SUNIONSTORE", "kK", "Compute the union between the Sets stored at key1, key2, ..., keyN, and store the resulting Set at dstkey")
-cmd("SDIFF", "K", "Return the difference between the Set stored at key1 and all the Sets key2, ..., keyN")
+cmd("SDIFF", "K", "Return the difference between the Set stored at key1 and all the Sets key2, ..., keyN",
+    { post_hook=list_to_set })
 cmd("SDIFFSTORE", "kK", "Compute the difference between the Set key1 and all the Sets key2, ..., keyN, and store the resulting Set at dstkey")
-cmd("SMEMBERS", "k", "Return all the members of the Set value at key")
+cmd("SMEMBERS", "k", "Return all the members of the Set value at key",
+    { post_hook=list_to_set })
 cmd("SRANDMEMBER", "k", "Return a random member of the Set value at key")
 
 
@@ -521,6 +539,8 @@ cmd("PING", nil, "Ping the database")
 cmd("DEBUG", nil, "???")
 cmd("RELOAD", nil, "???")
 
+local known_sort_opts = { by=true, start=true, count=true, get=true,
+                          asc=true, desc=true, alpha=true, store=true }
 
 ---Sort the elements contained in the List, Set, or Sorted Set value at key.
 -- SORT key [BY pattern] [LIMIT start count] [GET pattern] [ASC|DESC] [ALPHA] [STORE dstkey]
@@ -532,6 +552,11 @@ function Connection:sort(key, t)
    local get = t.get
    local asc, desc, alpha = t.asc, t.desc, t.alpha --ASC is default
    local store = t.store
+   for k in pairs(t) do
+      if not known_sort_opts[k] then
+         return false, "Bad sort option: " .. tostring(k)
+      end
+   end
 
    assert(not(asc and desc), "ASC and DESC are mutually exclusive")
    local b = {}
@@ -546,5 +571,6 @@ function Connection:sort(key, t)
    
    trace("-- SORTING:", concat(b, " "))
 
-   return self:sendrecv(concat(b, " "), result_handler) 
+   local ok, res = self:sendrecv(concat(b, " ")) 
+   if ok then return res else return false, res end
 end
