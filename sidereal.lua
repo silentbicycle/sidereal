@@ -23,7 +23,9 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 -- watch for (false, "closed") if the connection breaks. Redis commands
 -- run via proxy() use Lua's error() call, since it isn't possible
 -- to do normal error checking on "var = proxy.key".</p>
+--
 -- <p>All standard Redis commands are prefaced with "R:" below.</p>
+--
 -- <p>For further usage examples, see the test suite.</p>
 ------------------------------------------------------------------------
 
