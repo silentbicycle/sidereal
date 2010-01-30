@@ -457,6 +457,7 @@ cmd("QUIT", nil)
 function Sidereal:auth(key) end
 cmd("AUTH", "k")
 
+
 -- Commands operating on all the kind of values
 
 ---R: Test if a key exists
@@ -533,6 +534,7 @@ cmd("FLUSHDB", nil)
 function Sidereal:flushall() end
 cmd("FLUSHALL", nil)
 
+
 --Commands operating on string values
 
 ---R: Set a key to a string value
@@ -581,6 +583,7 @@ cmd("DECR", "k")
 function Sidereal:decrby(key, integer) end
 cmd("DECRBY", "ki")
 
+
 -- Commands operating on lists
 
 ---R: Append an element to the tail of the List value at key
@@ -626,6 +629,7 @@ cmd("RPOP", "k")
 ---R: Return and remove (atomically) the last element of the source List stored at _srckey_ and push the same element to the destination List stored at _dstkey_
 function Sidereal:rpoplpush(key, key) end
 cmd("RPOPLPUSH", "kk")
+
 
 -- Commands operating on sets
 
@@ -744,6 +748,7 @@ cmd("ZRANGE", "kse",
                  else return msg end
               end })
 
+
 -- Persistence control commands
 
 ---R: Synchronously save the DB on disk
@@ -765,6 +770,7 @@ cmd("SHUTDOWN", nil)
 ---R: Rewrite the append only file in background when it gets too big
 function Sidereal:bgrewriteaof() end
 cmd("BGREWRITEAOF", nil)
+
 
 -- Remote server control commands
 
@@ -794,6 +800,7 @@ cmd("SLAVEOF", "ki",
                    return args
                 end})
 
+
 -- These three are not in the reference, but were in the TCL test suite.
 
 ---R: Ping the database
@@ -808,9 +815,9 @@ cmd("DEBUG", nil)
 function Sidereal:reload() end
 cmd("RELOAD", nil)
 
+
 local known_sort_opts = { by=true, start=true, count=true, get=true,
                           asc=true, desc=true, alpha=true, store=true }
-
 
 ---R: Sort the elements contained in the List, Set, or Sorted Set value at key.
 -- @usage e.g. r:sort("key", { start=10, count=25, alpha=true })
