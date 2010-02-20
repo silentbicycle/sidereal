@@ -1,8 +1,7 @@
 require "sidereal"
 
 --------------------------------------------------------------------
--- Test suite for Sidereal.
--- This requires LUnit ( http://nessie.de/mroth/lunit ).
+-- Test suite for Sidereal. (Requires Lunatest.)
 --
 -- The tests were adapted from Salvatore Sanfilippo's TCL test
 -- suite with Emacs query-replace-regexp, keyboard macros, and
@@ -16,8 +15,7 @@ require "sidereal"
 
 local nonblocking, trace_nb = true, false
 
-
-module("tests", lunit.testcase, package.seeall)
+require "lunatest"
 
 
 local fmt, floor, random = string.format, math.floor, math.random
@@ -41,7 +39,7 @@ local R                         --the Redis connection
 local pass_ct = 0
 local function sleep(secs) socket.select(nil, nil, secs) end
 
-function setup()
+function setup(name)
    local pass
    if nonblocking then
       pass = function()
@@ -50,12 +48,13 @@ function setup()
                 if trace_nb then print(" -- pass", pass_ct) end
              end
    end
-   R = sidereal.connect("localhost", 6379, pass)
+   R = assert(sidereal.connect("localhost", 6379, pass),
+              "Cannot connect to redis-server on localhost:6379")
    R:flushall()                 --oh no! my data!
 end
 
 
-function teardown()
+function teardown(name, elapsed)
    R:quit()
 end
 
@@ -1968,3 +1967,6 @@ function test_proxy_getset_other_types()
    assert_equal("true", pr.mytrue)
    assert_equal("23", pr.mynum)
 end
+
+
+lunatest.run(true)
