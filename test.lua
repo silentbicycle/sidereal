@@ -1969,4 +1969,4 @@ function test_proxy_getset_other_types()
 end
 
 
-lunatest.run(true)
+lunatest.run()

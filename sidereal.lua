@@ -40,11 +40,16 @@ local tonumber, tostring = tonumber, tostring
 
 module(...)
 
+local function conststr(k)
+   return function () return k end
+end
+
+
 -- global null sentinel, to distinguish Redis's null from Lua's nil
-NULL = setmetatable( {}, {__tostring = "[NULL]" })
+NULL = setmetatable( {}, {__tostring = conststr("[NULL]") })
 
 -- sentinel sent as response to a pipelined command
-PIPELINED = setmetatable( {}, {__tostring = "[PIPELINED]" })
+PIPELINED = setmetatable( {}, {__tostring = conststr("[PIPELINED]") })
 
 -- aliases
 local fmt, len, sub, gmatch =
