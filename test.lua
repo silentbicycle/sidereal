@@ -70,7 +70,7 @@ end
 
 local function set_cmp(got, exp)
    assert_table(got)
-   for _,v in ipairs(exp) do assert(got[v]) end
+   for _,v in ipairs(exp) do assert_true(got[v]) end
 end
 
 
@@ -80,7 +80,7 @@ local function lsort(iter)
       return iter
    end
    error("still got iter")
-   assert(type(iter) == "function", "Bad iterator")
+   assert_true(type(iter) == "function", "Bad iterator")
    local vs = accum(iter)
    table.sort(vs)
    return vs
@@ -209,7 +209,7 @@ function test_keys2()
    setkeys("hello", {"key_x", "key_y", "key_z", "foo_a", "foo_b", "foo_c"})
 
    local res = R:keys("key*", true)
-   assert(res)
+   assert_true(res)
    assert_equal("key_x key_y key_z", res)
 end
 
@@ -359,15 +359,15 @@ function test_pipelining_by_hand()
    R:send("SET k1 4\r\nxyzk\r\nGET k1\r\nPING\r\n")
    local ok, r1, r2, r3
    ok, r1 = R:get_response()
-   assert(ok)
+   assert_true(ok)
    assert_match("OK", r1)
 
    ok, r2 = R:get_response()
-   assert(ok)
+   assert_true(ok)
    assert_match("xyzk", r2)
 
    ok, r3 = R:get_response()
-   assert(ok)
+   assert_true(ok)
    assert_match("PONG", r3)
 end
 
@@ -381,15 +381,15 @@ function test_pipelining_mode()
    R:send_pipeline()
    local ok, r1, r2, r3
    ok, r1 = R:get_response()
-   assert(ok)
+   assert_true(ok)
    assert_match("OK", r1)
    
    ok, r2 = R:get_response()
-   assert(ok)
+   assert_true(ok)
    assert_match("xyzk", r2)
    
    ok, r3 = R:get_response()
-   assert(ok)
+   assert_true(ok)
    assert_match("PONG", r3)
 end
 
@@ -984,13 +984,13 @@ if do_slow then
    function test_SAVE_make_sure_there_are_all_the_types_as_values()
       R:bgsave()
       waitForBgsave()
-      assert(R:lpush("mysavelist", "hello"))
-      assert(R:lpush("mysavelist", "world"))
-      assert(R:set("myemptykey", ""))
-      assert(R:set("mynormalkey", "blablablba"))
-      assert(R:zadd("mytestzset", 10, "a"))
-      assert(R:zadd("mytestzset", 20, "b"))
-      assert(R:zadd("mytestzset", 30, "c"))
+      assert_true(R:lpush("mysavelist", "hello"))
+      assert_true(R:lpush("mysavelist", "world"))
+      assert_true(R:set("myemptykey", ""))
+      assert_true(R:set("mynormalkey", "blablablba"))
+      assert_true(R:zadd("mytestzset", 10, "a"))
+      assert_true(R:zadd("mytestzset", 20, "b"))
+      assert_true(R:zadd("mytestzset", 30, "c"))
       assert_equal("OK", R:save())
    end
 end
@@ -1117,7 +1117,7 @@ function test_RANDOMKEY()
       if rkey == "foo" then foo_seen = true end
       if rkey == "bar" then bar_seen = true end
    end
-   assert(foo_seen and bar_seen)
+   assert_true(foo_seen and bar_seen)
 end
 
 
@@ -1236,7 +1236,7 @@ function test_MSETNX_with_not_existing_keys()
    assert_true(R:msetnx { x1="xxx", y2="yyy" })
 
    local res, err = R:get("x1")
-   assert(res, err)
+   assert_true(res, err)
    assert_equal("xxx", res)
    assert_equal("yyy", R:get("y2"))
 end
@@ -1284,7 +1284,7 @@ local function t_zscore(debug)
    for key=1,lim do
       local score = random()
       aux[#aux+1] = score
-      assert(R:zadd("zscoretest", score, key))
+      assert_true(R:zadd("zscoretest", score, key))
    end
 
    if debug then
@@ -1419,17 +1419,17 @@ if do_slow then
          
          for _,x in ipairs(low) do
             local score = tonumber(R:zscore("zset", x))
-            assert(score < lb, "Score is greater than upper bound")
+            assert_true(score < lb, "Score is greater than upper bound")
          end
          
          for _,x in ipairs(mid) do
             local score = tonumber(R:zscore("zset", x))
-            assert(score > lb and score < ub, "Score is out of bounds")
+            assert_true(score > lb and score < ub, "Score is out of bounds")
          end
          
          for _,x in ipairs(high) do
             local score = tonumber(R:zscore("zset", x))
-            assert(score > ub, "Score is less than lower bound")
+            assert_true(score > ub, "Score is less than lower bound")
          end
       end
    end
@@ -1533,7 +1533,7 @@ function test_EXPIREAT_Check_for_EXPIRE_alike_behavior()
    R:set("x", "foo")
    R:expireat("x", now() + 15)
    local ttl = R:ttl("x")
-   assert(ttl > 10 and ttl <= 15)
+   assert_true(ttl > 10 and ttl <= 15)
 end
 
 
@@ -1571,14 +1571,14 @@ end
 
 function test_Handle_an_empty_query_well()
    local s = R._socket
-   assert(s:send("\r\n"))
+   assert_true(s:send("\r\n"))
    assert_equal("PONG", R:ping())
 end
 
 
 function test_Negative_multi_bulk_command_does_not_create_problems()
    local s = R._socket
-   assert(s:send("*-10\r\n"))
+   assert_true(s:send("*-10\r\n"))
    assert_equal("PONG", R:ping())
 end
 
@@ -1805,12 +1805,12 @@ if do_slow then
       R:save()
       R:debug(); R:reload()
       local ttl = R:ttl("x")
-      assert(ttl > 900 and ttl <= 1000)
+      assert_true(ttl > 900 and ttl <= 1000)
       R:bgrewriteaof()
       waitForBgrewriteaof()
       
       ttl = R:ttl("x")
-      assert(ttl > 900 and ttl < 1000)
+      assert_true(ttl > 900 and ttl < 1000)
    end
 
 
@@ -1827,11 +1827,11 @@ if do_slow then
       
       for i=1,100000 do
          local ok, res = R:get_response()
-         assert(ok, res)
+         assert_true(ok, res)
          assert_equal("OK", res)
          
          local ok2, val = R:get_response()
-         assert(ok2, val)
+         assert_true(ok2, val)
          assert_match(fmt("0000%d0000", i), val)
       end
    end
@@ -1853,11 +1853,11 @@ if do_slow then
       
       for i=1,100000 do
          local ok, res = R:get_response()
-         assert(ok, res)
+         assert_true(ok, res)
          assert_equal("OK", res)
          
          local ok2, val = R:get_response()
-         assert(ok2, val)
+         assert_true(ok2, val)
          assert_match(fmt("0000%d0000", i), val)
       end
    end
