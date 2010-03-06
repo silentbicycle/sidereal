@@ -14,6 +14,7 @@ Normal Redis commands return (false, error) on error. Mainly, watch for
 proxy() table use Lua's error() call, since it isn't possible to do
 normal error checking on e.g. "var = proxy.key".
 
-For further usage examples, see the API documentation and test suite.
+For further usage examples, see the API documentation and test suite
+(which includes a complete translation of the official TCL test suite).
 
 [redis]: http://code.google.com/p/redis/
