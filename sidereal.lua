@@ -40,7 +40,8 @@ local assert, error, ipairs, pairs, print, setmetatable, type =
    assert, error, ipairs, pairs, print, setmetatable, type
 local tonumber, tostring = tonumber, tostring
 
-module(...)
+---Redis library for Lua, with optional non-blocking mode and Lua-style lists & sets.
+module("sidereal")
 
 local function conststr(k)
    return function () return k end
