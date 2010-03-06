@@ -1,0 +1,2782 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+   "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html>
+<head>
+    <title>Reference</title>
+    <link rel="stylesheet" href="../luadoc.css" type="text/css" />
+	<!--meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/-->
+</head>
+
+<body>
+<div id="container">
+
+<div id="product">
+	<div id="product_logo"></div>
+	<div id="product_name"><big><b></b></big></div>
+	<div id="product_description"></div>
+</div> <!-- id="product" -->
+
+<div id="main">
+
+<div id="navigation">
+
+
+<h1>LuaDoc</h1>
+<ul>
+	
+	<li><a href="../index.html">Index</a></li>
+	
+</ul>
+
+
+<!-- Module list -->
+
+<h1>Modules</h1>
+<ul>
+
+	<li>
+		<a href="../modules/sidereal.html">sidereal</a>
+	</li>
+
+</ul>
+
+
+
+<!-- File list -->
+
+<h1>Files</h1>
+<ul>
+
+	<li><strong>sidereal.lua</strong></li>
+	
+</ul>
+
+
+
+
+
+
+</div> <!-- id="navigation" -->
+
+<div id="content">
+
+<h1>File <code>sidereal.lua</code></h1>
+
+
+<p>To connect to a Redis server, use: <code>c = sidereal.connect(host, port[, pass_hook])</code>  <p>If a pass hook function is provided, sidereal will call it to defer control whenever reading/writing on a socket would block.</p>  <p>Normal Redis commands return (false, error) on error. Mainly, watch for (false, "closed") if the connection breaks. Redis commands run via proxy() use Lua's error() call, since it isn't possible to do normal error checking on "var = proxy.key".</p>  <p>All standard Redis commands are prefaced with "R:" below.</p>  <p>For further usage examples, see the test suite.</p> </p>
+
+
+
+
+
+
+<h2>Functions</h2>
+<table class="function_list">
+
+	<tr>
+	<td class="name" nowrap><a href="#Sidereal:auth">Sidereal:auth</a>&nbsp;(key)</td>
+	<td class="summary">R: Simple password authentication if enabled </td>
+	</tr>
+
+	<tr>
+	<td class="name" nowrap><a href="#Sidereal:bgrewriteaof">Sidereal:bgrewriteaof</a>&nbsp;()</td>
+	<td class="summary">R: Rewrite the append only file in background when it gets too big </td>
+	</tr>
+
+	<tr>
+	<td class="name" nowrap><a href="#Sidereal:bgsave">Sidereal:bgsave</a>&nbsp;()</td>
+	<td class="summary">R: Asynchronously save the DB on disk </td>
+	</tr>
+
+	<tr>
+	<td class="name" nowrap><a href="#Sidereal:connect">Sidereal:connect</a>&nbsp;()</td>
+	<td class="summary">(Re)Connect to the specified Redis server.</td>
+	</tr>
+
+	<tr>
+	<td class="name" nowrap><a href="#Sidereal:dbsize">Sidereal:dbsize</a>&nbsp;()</td>
+	<td class="summary">R: Return the number of keys in the current db </td>
+	</tr>
+
+	<tr>
+	<td class="name" nowrap><a href="#Sidereal:debug">Sidereal:debug</a>&nbsp;()</td>
+	<td class="summary">R: Set debug flag (in official test suite) </td>
+	</tr>
+
+	<tr>
+	<td class="name" nowrap><a href="#Sidereal:decr">Sidereal:decr</a>&nbsp;(key)</td>
+	<td class="summary">R: Decrement the integer value of key </td>
+	</tr>
+
+	<tr>
+	<td class="name" nowrap><a href="#Sidereal:decrby">Sidereal:decrby</a>&nbsp;(key, integer)</td>
+	<td class="summary">R: Decrement the integer value of key by integer </td>
+	</tr>
+
+	<tr>
+	<td class="name" nowrap><a href="#Sidereal:del">Sidereal:del</a>&nbsp;(key_list)</td>
+	<td class="summary">R: Delete a key </td>
+	</tr>
+
+	<tr>
+	<td class="name" nowrap><a href="#Sidereal:exists">Sidereal:exists</a>&nbsp;(key)</td>
+	<td class="summary">R: Test if a key exists </td>
+	</tr>
+
+	<tr>
+	<td class="name" nowrap><a href="#Sidereal:expire">Sidereal:expire</a>&nbsp;(key, time_in_seconds)</td>
+	<td class="summary">R: Set relative a time to live in seconds on a key </td>
+	</tr>
+
+	<tr>
+	<td class="name" nowrap><a href="#Sidereal:expireat">Sidereal:expireat</a>&nbsp;(key, time_in_seconds)</td>
+	<td class="summary">R: Set absolute time to live in seconds on a key </td>
+	</tr>
+
+	<tr>
+	<td class="name" nowrap><a href="#Sidereal:flushall">Sidereal:flushall</a>&nbsp;()</td>
+	<td class="summary">R: Remove all the keys from all the databases </td>
+	</tr>
+
+	<tr>
+	<td class="name" nowrap><a href="#Sidereal:flushdb">Sidereal:flushdb</a>&nbsp;()</td>
+	<td class="summary">R: Remove all the keys of the currently selected DB </td>
+	</tr>
+
+	<tr>
+	<td class="name" nowrap><a href="#Sidereal:get">Sidereal:get</a>&nbsp;(key)</td>
+	<td class="summary">R: Return the string value of the key </td>
+	</tr>
+
+	<tr>
+	<td class="name" nowrap><a href="#Sidereal:get_response">Sidereal:get_response</a>&nbsp;()</td>
+	<td class="summary">Read and parse one response, passing on timeout if non-blocking.</td>
+	</tr>
+
+	<tr>
+	<td class="name" nowrap><a href="#Sidereal:getset">Sidereal:getset</a>&nbsp;(key, value)</td>
+	<td class="summary">R: Set a key to a string returning the old value of the key </td>
+	</tr>
+
+	<tr>
+	<td class="name" nowrap><a href="#Sidereal:incr">Sidereal:incr</a>&nbsp;(key)</td>
+	<td class="summary">R: Increment the integer value of key </td>
+	</tr>
+
+	<tr>
+	<td class="name" nowrap><a href="#Sidereal:incrby">Sidereal:incrby</a>&nbsp;(key, integer)</td>
+	<td class="summary">R: Increment the integer value of key by integer </td>
+	</tr>
+
+	<tr>
+	<td class="name" nowrap><a href="#Sidereal:info">Sidereal:info</a>&nbsp;()</td>
+	<td class="summary">R: Provide information and statistics about the server </td>
+	</tr>
+
+	<tr>
+	<td class="name" nowrap><a href="#Sidereal:keys">Sidereal:keys</a>&nbsp;(pattern)</td>
+	<td class="summary">R: Return an iterator listing all keys matching a given pattern </td>
+	</tr>
+
+	<tr>
+	<td class="name" nowrap><a href="#Sidereal:lastsave">Sidereal:lastsave</a>&nbsp;()</td>
+	<td class="summary">R: Return the UNIX time stamp of the last successfully saving of the dataset on disk </td>
+	</tr>
+
+	<tr>
+	<td class="name" nowrap><a href="#Sidereal:lindex">Sidereal:lindex</a>&nbsp;(key, integer)</td>
+	<td class="summary">R: Return the element at index position from the List at key </td>
+	</tr>
+
+	<tr>
+	<td class="name" nowrap><a href="#Sidereal:llen">Sidereal:llen</a>&nbsp;(key)</td>
+	<td class="summary">R: Return the length of the List value at key </td>
+	</tr>
+
+	<tr>
+	<td class="name" nowrap><a href="#Sidereal:lpop">Sidereal:lpop</a>&nbsp;(key)</td>
+	<td class="summary">R: Return and remove (atomically) the first element of the List at key </td>
+	</tr>
+
+	<tr>
+	<td class="name" nowrap><a href="#Sidereal:lpush">Sidereal:lpush</a>&nbsp;(key, value)</td>
+	<td class="summary">R: Append an element to the head of the List value at key </td>
+	</tr>
+
+	<tr>
+	<td class="name" nowrap><a href="#Sidereal:lrange">Sidereal:lrange</a>&nbsp;(key, start_index, end_index)</td>
+	<td class="summary">R: Return a range of elements from the List at key </td>
+	</tr>
+
+	<tr>
+	<td class="name" nowrap><a href="#Sidereal:lrem">Sidereal:lrem</a>&nbsp;(key, integer, value)</td>
+	<td class="summary">R: Remove the first-N, last-N, or all the elements matching value from the List at key </td>
+	</tr>
+
+	<tr>
+	<td class="name" nowrap><a href="#Sidereal:lset">Sidereal:lset</a>&nbsp;(key, integer, value)</td>
+	<td class="summary">R: Set a new value as the element at index position of the List at key </td>
+	</tr>
+
+	<tr>
+	<td class="name" nowrap><a href="#Sidereal:ltrim">Sidereal:ltrim</a>&nbsp;(key, start_index, end_index)</td>
+	<td class="summary">R: Trim the list at key to the specified range of elements </td>
+	</tr>
+
+	<tr>
+	<td class="name" nowrap><a href="#Sidereal:mget">Sidereal:mget</a>&nbsp;(key_list)</td>
+	<td class="summary">R: Multi-get, return the strings values of the keys </td>
+	</tr>
+
+	<tr>
+	<td class="name" nowrap><a href="#Sidereal:monitor">Sidereal:monitor</a>&nbsp;()</td>
+	<td class="summary">R: Dump all the received requests in real time </td>
+	</tr>
+
+	<tr>
+	<td class="name" nowrap><a href="#Sidereal:move">Sidereal:move</a>&nbsp;(key, db_index)</td>
+	<td class="summary">R: Move the key from the currently selected DB to the DB having as index dbindex </td>
+	</tr>
+
+	<tr>
+	<td class="name" nowrap><a href="#Sidereal:mset">Sidereal:mset</a>&nbsp;(table)</td>
+	<td class="summary">R: Set a multiple keys to multiple values in a single atomic operation </td>
+	</tr>
+
+	<tr>
+	<td class="name" nowrap><a href="#Sidereal:msetnx">Sidereal:msetnx</a>&nbsp;(table)</td>
+	<td class="summary">R: Set a multiple keys to multiple values in a single atomic operation if none of the keys already exist </td>
+	</tr>
+
+	<tr>
+	<td class="name" nowrap><a href="#Sidereal:pass">Sidereal:pass</a>&nbsp;()</td>
+	<td class="summary">Call pass hook (if any).</td>
+	</tr>
+
+	<tr>
+	<td class="name" nowrap><a href="#Sidereal:ping">Sidereal:ping</a>&nbsp;()</td>
+	<td class="summary">R: Ping the database </td>
+	</tr>
+
+	<tr>
+	<td class="name" nowrap><a href="#Sidereal:pipeline">Sidereal:pipeline</a>&nbsp;()</td>
+	<td class="summary">Begin a series of pipelined commands.</td>
+	</tr>
+
+	<tr>
+	<td class="name" nowrap><a href="#Sidereal:proxy">Sidereal:proxy</a>&nbsp;()</td>
+	<td class="summary">Return a table that can be used as a proxy (via __index and __newindex).</td>
+	</tr>
+
+	<tr>
+	<td class="name" nowrap><a href="#Sidereal:quit">Sidereal:quit</a>&nbsp;()</td>
+	<td class="summary">R: Close the connection </td>
+	</tr>
+
+	<tr>
+	<td class="name" nowrap><a href="#Sidereal:randomkey">Sidereal:randomkey</a>&nbsp;()</td>
+	<td class="summary">R: Return a random key from the key space </td>
+	</tr>
+
+	<tr>
+	<td class="name" nowrap><a href="#Sidereal:receive">Sidereal:receive</a>&nbsp;(len)</td>
+	<td class="summary">Receive len bytes, passing on timeout if non-blocking.</td>
+	</tr>
+
+	<tr>
+	<td class="name" nowrap><a href="#Sidereal:reload">Sidereal:reload</a>&nbsp;()</td>
+	<td class="summary">R: Force reload of data(?) (in official test suite) </td>
+	</tr>
+
+	<tr>
+	<td class="name" nowrap><a href="#Sidereal:rename">Sidereal:rename</a>&nbsp;(key, key)</td>
+	<td class="summary">R: Rename the old key in the new one, destroing the newname key if it already exists </td>
+	</tr>
+
+	<tr>
+	<td class="name" nowrap><a href="#Sidereal:renamenx">Sidereal:renamenx</a>&nbsp;(key, key)</td>
+	<td class="summary">R: Rename the old key in the new one, if the newname key does not already exist </td>
+	</tr>
+
+	<tr>
+	<td class="name" nowrap><a href="#Sidereal:rpop">Sidereal:rpop</a>&nbsp;(key)</td>
+	<td class="summary">R: Return and remove (atomically) the last element of the List at key </td>
+	</tr>
+
+	<tr>
+	<td class="name" nowrap><a href="#Sidereal:rpoplpush">Sidereal:rpoplpush</a>&nbsp;(key, key)</td>
+	<td class="summary">R: Return and remove (atomically) the last element of the source List stored at _srckey_ and push the same element to the destination List stored at _dstkey_ </td>
+	</tr>
+
+	<tr>
+	<td class="name" nowrap><a href="#Sidereal:rpush">Sidereal:rpush</a>&nbsp;(key, value)</td>
+	<td class="summary">R: Append an element to the tail of the List value at key </td>
+	</tr>
+
+	<tr>
+	<td class="name" nowrap><a href="#Sidereal:sadd">Sidereal:sadd</a>&nbsp;(key, member)</td>
+	<td class="summary">R: Add the specified member to the Set value at key </td>
+	</tr>
+
+	<tr>
+	<td class="name" nowrap><a href="#Sidereal:save">Sidereal:save</a>&nbsp;()</td>
+	<td class="summary">R: Synchronously save the DB on disk </td>
+	</tr>
+
+	<tr>
+	<td class="name" nowrap><a href="#Sidereal:scard">Sidereal:scard</a>&nbsp;(key)</td>
+	<td class="summary">R: Return the number of elements (the cardinality) of the Set at key </td>
+	</tr>
+
+	<tr>
+	<td class="name" nowrap><a href="#Sidereal:sdiff">Sidereal:sdiff</a>&nbsp;(key_list)</td>
+	<td class="summary">R: Return the difference between the Set stored at key1 and all the Sets key2, ..., keyN </td>
+	</tr>
+
+	<tr>
+	<td class="name" nowrap><a href="#Sidereal:sdiffstore">Sidereal:sdiffstore</a>&nbsp;(key, key_list)</td>
+	<td class="summary">R: Compute the difference between the Set key1 and all the Sets key2, ..., keyN, and store the resulting Set at dstkey </td>
+	</tr>
+
+	<tr>
+	<td class="name" nowrap><a href="#Sidereal:select">Sidereal:select</a>&nbsp;(db_index)</td>
+	<td class="summary">R: Select the DB having the specified index </td>
+	</tr>
+
+	<tr>
+	<td class="name" nowrap><a href="#Sidereal:send">Sidereal:send</a>&nbsp;(cmd)</td>
+	<td class="summary">Send a raw string, don't wait for response.</td>
+	</tr>
+
+	<tr>
+	<td class="name" nowrap><a href="#Sidereal:send_pipeline">Sidereal:send_pipeline</a>&nbsp;()</td>
+	<td class="summary">Send a queue of pipelined commands.</td>
+	</tr>
+
+	<tr>
+	<td class="name" nowrap><a href="#Sidereal:send_receive">Sidereal:send_receive</a>&nbsp;(cmd)</td>
+	<td class="summary">Send a raw string and (if not pipelining) return the response.</td>
+	</tr>
+
+	<tr>
+	<td class="name" nowrap><a href="#Sidereal:set">Sidereal:set</a>&nbsp;(key, value)</td>
+	<td class="summary">R: Set a key to a string value </td>
+	</tr>
+
+	<tr>
+	<td class="name" nowrap><a href="#Sidereal:setnx">Sidereal:setnx</a>&nbsp;(key, value)</td>
+	<td class="summary">R: Set a key to a string value if the key does not exist </td>
+	</tr>
+
+	<tr>
+	<td class="name" nowrap><a href="#Sidereal:shutdown">Sidereal:shutdown</a>&nbsp;()</td>
+	<td class="summary">R: Synchronously save the DB on disk, then shutdown the server </td>
+	</tr>
+
+	<tr>
+	<td class="name" nowrap><a href="#Sidereal:sinter">Sidereal:sinter</a>&nbsp;(key_list)</td>
+	<td class="summary">R: Return the intersection between the Sets stored at key1, key2, ..., keyN </td>
+	</tr>
+
+	<tr>
+	<td class="name" nowrap><a href="#Sidereal:sinterstore">Sidereal:sinterstore</a>&nbsp;(key, key_list)</td>
+	<td class="summary">R: Compute the intersection between the Sets stored at key1, key2, ..., keyN, and store the resulting Set at dstkey </td>
+	</tr>
+
+	<tr>
+	<td class="name" nowrap><a href="#Sidereal:sismember">Sidereal:sismember</a>&nbsp;(key, member)</td>
+	<td class="summary">R: Test if the specified value is a member of the Set at key </td>
+	</tr>
+
+	<tr>
+	<td class="name" nowrap><a href="#Sidereal:slaveof">Sidereal:slaveof</a>&nbsp;(key, integer)</td>
+	<td class="summary">R: Set/clear replication of another server.</td>
+	</tr>
+
+	<tr>
+	<td class="name" nowrap><a href="#Sidereal:smembers">Sidereal:smembers</a>&nbsp;(key)</td>
+	<td class="summary">R: Return all the members of the Set value at key </td>
+	</tr>
+
+	<tr>
+	<td class="name" nowrap><a href="#Sidereal:smove">Sidereal:smove</a>&nbsp;(key, key, member)</td>
+	<td class="summary">R: Move the specified member from one Set to another atomically </td>
+	</tr>
+
+	<tr>
+	<td class="name" nowrap><a href="#Sidereal:sort">Sidereal:sort</a>&nbsp;(key, options)</td>
+	<td class="summary">R: Sort the elements contained in the List, Set, or Sorted Set value at key.</td>
+	</tr>
+
+	<tr>
+	<td class="name" nowrap><a href="#Sidereal:spop">Sidereal:spop</a>&nbsp;(key)</td>
+	<td class="summary">R: Remove and return (pop) a random element from the Set value at key </td>
+	</tr>
+
+	<tr>
+	<td class="name" nowrap><a href="#Sidereal:srandmember">Sidereal:srandmember</a>&nbsp;(key)</td>
+	<td class="summary">R: Return a random member of the Set value at key </td>
+	</tr>
+
+	<tr>
+	<td class="name" nowrap><a href="#Sidereal:srem">Sidereal:srem</a>&nbsp;(key, member)</td>
+	<td class="summary">R: Remove the specified member from the Set value at key </td>
+	</tr>
+
+	<tr>
+	<td class="name" nowrap><a href="#Sidereal:sunion">Sidereal:sunion</a>&nbsp;(key_list)</td>
+	<td class="summary">R: Return the union between the Sets stored at key1, key2, ..., keyN </td>
+	</tr>
+
+	<tr>
+	<td class="name" nowrap><a href="#Sidereal:sunionstore">Sidereal:sunionstore</a>&nbsp;(key, key_list)</td>
+	<td class="summary">R: Compute the union between the Sets stored at key1, key2, ..., keyN, and store the resulting Set at dstkey </td>
+	</tr>
+
+	<tr>
+	<td class="name" nowrap><a href="#Sidereal:tostring">Sidereal:tostring</a>&nbsp;()</td>
+	<td class="summary">Sidereal->string.</td>
+	</tr>
+
+	<tr>
+	<td class="name" nowrap><a href="#Sidereal:ttl">Sidereal:ttl</a>&nbsp;(key)</td>
+	<td class="summary">R: Get the time to live in seconds of a key </td>
+	</tr>
+
+	<tr>
+	<td class="name" nowrap><a href="#Sidereal:type">Sidereal:type</a>&nbsp;(key)</td>
+	<td class="summary">R: Return the type of the value stored at key </td>
+	</tr>
+
+	<tr>
+	<td class="name" nowrap><a href="#Sidereal:zadd">Sidereal:zadd</a>&nbsp;(key, float, member)</td>
+	<td class="summary">R: Add the specified member to the Sorted Set value at key or update the score if it already exist </td>
+	</tr>
+
+	<tr>
+	<td class="name" nowrap><a href="#Sidereal:zcard">Sidereal:zcard</a>&nbsp;(key)</td>
+	<td class="summary">R: Return the cardinality (number of elements) of the sorted set at key </td>
+	</tr>
+
+	<tr>
+	<td class="name" nowrap><a href="#Sidereal:zincrby">Sidereal:zincrby</a>&nbsp;(key, integer, member)</td>
+	<td class="summary">R: If the member already exists increment its score by _increment_, otherwise add the member setting _increment_ as score </td>
+	</tr>
+
+	<tr>
+	<td class="name" nowrap><a href="#Sidereal:zrange">Sidereal:zrange</a>&nbsp;(key, start_index, end_index)</td>
+	<td class="summary">R: Return a range of elements from the sorted set at key </td>
+	</tr>
+
+	<tr>
+	<td class="name" nowrap><a href="#Sidereal:zrangebyscore">Sidereal:zrangebyscore</a>&nbsp;(key, float, float)</td>
+	<td class="summary">R: Return all the elements with score >= min and score <= max (a range query) from the sorted set </td>
+	</tr>
+
+	<tr>
+	<td class="name" nowrap><a href="#Sidereal:zrem">Sidereal:zrem</a>&nbsp;(key, member)</td>
+	<td class="summary">R: Remove the specified member from the Sorted Set value at key </td>
+	</tr>
+
+	<tr>
+	<td class="name" nowrap><a href="#Sidereal:zremrangebyscore">Sidereal:zremrangebyscore</a>&nbsp;(key, float, float)</td>
+	<td class="summary">R: Remove all the elements with score >= min and score <= max from the sorted set </td>
+	</tr>
+
+	<tr>
+	<td class="name" nowrap><a href="#Sidereal:zrevrange">Sidereal:zrevrange</a>&nbsp;(key, start_index, end_index)</td>
+	<td class="summary">R: Return a range of elements from the sorted set at key, exactly like ZRANGE, but the sorted set is ordered in traversed in reverse order, from the greatest to the smallest score </td>
+	</tr>
+
+	<tr>
+	<td class="name" nowrap><a href="#Sidereal:zscore">Sidereal:zscore</a>&nbsp;(key, value)</td>
+	<td class="summary">R: Return the score associated with the specified element of the sorted set at key </td>
+	</tr>
+
+	<tr>
+	<td class="name" nowrap><a href="#connect">connect</a>&nbsp;(host, port, pass_hook)</td>
+	<td class="summary">Create and return a Sidereal connection object.</td>
+	</tr>
+
+</table>
+
+
+
+
+
+
+<br/>
+<br/>
+
+
+
+
+<h2><a name="functions"></a>Functions</h2>
+<dl class="function">
+
+
+
+<dt><a name="Sidereal:auth"></a><strong>Sidereal:auth</strong>&nbsp;(key)</dt>
+<dd>
+R: Simple password authentication if enabled
+
+
+<h3>Parameters</h3>
+<ul>
+	
+	<li>
+	  key: 
+	</li>
+	
+</ul>
+
+
+
+
+
+
+
+
+</dd>
+
+
+
+
+<dt><a name="Sidereal:bgrewriteaof"></a><strong>Sidereal:bgrewriteaof</strong>&nbsp;()</dt>
+<dd>
+R: Rewrite the append only file in background when it gets too big
+
+
+
+
+
+
+
+
+
+</dd>
+
+
+
+
+<dt><a name="Sidereal:bgsave"></a><strong>Sidereal:bgsave</strong>&nbsp;()</dt>
+<dd>
+R: Asynchronously save the DB on disk
+
+
+
+
+
+
+
+
+
+</dd>
+
+
+
+
+<dt><a name="Sidereal:connect"></a><strong>Sidereal:connect</strong>&nbsp;()</dt>
+<dd>
+(Re)Connect to the specified Redis server.
+
+
+
+
+
+
+
+
+
+</dd>
+
+
+
+
+<dt><a name="Sidereal:dbsize"></a><strong>Sidereal:dbsize</strong>&nbsp;()</dt>
+<dd>
+R: Return the number of keys in the current db
+
+
+
+
+
+
+
+
+
+</dd>
+
+
+
+
+<dt><a name="Sidereal:debug"></a><strong>Sidereal:debug</strong>&nbsp;()</dt>
+<dd>
+R: Set debug flag (in official test suite)
+
+
+
+
+
+
+
+
+
+</dd>
+
+
+
+
+<dt><a name="Sidereal:decr"></a><strong>Sidereal:decr</strong>&nbsp;(key)</dt>
+<dd>
+R: Decrement the integer value of key
+
+
+<h3>Parameters</h3>
+<ul>
+	
+	<li>
+	  key: 
+	</li>
+	
+</ul>
+
+
+
+
+
+
+
+
+</dd>
+
+
+
+
+<dt><a name="Sidereal:decrby"></a><strong>Sidereal:decrby</strong>&nbsp;(key, integer)</dt>
+<dd>
+R: Decrement the integer value of key by integer
+
+
+<h3>Parameters</h3>
+<ul>
+	
+	<li>
+	  key: 
+	</li>
+	
+	<li>
+	  integer: 
+	</li>
+	
+</ul>
+
+
+
+
+
+
+
+
+</dd>
+
+
+
+
+<dt><a name="Sidereal:del"></a><strong>Sidereal:del</strong>&nbsp;(key_list)</dt>
+<dd>
+R: Delete a key
+
+
+<h3>Parameters</h3>
+<ul>
+	
+	<li>
+	  key_list: 
+	</li>
+	
+</ul>
+
+
+
+
+
+
+
+
+</dd>
+
+
+
+
+<dt><a name="Sidereal:exists"></a><strong>Sidereal:exists</strong>&nbsp;(key)</dt>
+<dd>
+R: Test if a key exists
+
+
+<h3>Parameters</h3>
+<ul>
+	
+	<li>
+	  key: 
+	</li>
+	
+</ul>
+
+
+
+
+
+
+
+
+</dd>
+
+
+
+
+<dt><a name="Sidereal:expire"></a><strong>Sidereal:expire</strong>&nbsp;(key, time_in_seconds)</dt>
+<dd>
+R: Set relative a time to live in seconds on a key
+
+
+<h3>Parameters</h3>
+<ul>
+	
+	<li>
+	  key: 
+	</li>
+	
+	<li>
+	  time_in_seconds: 
+	</li>
+	
+</ul>
+
+
+
+
+
+
+
+
+</dd>
+
+
+
+
+<dt><a name="Sidereal:expireat"></a><strong>Sidereal:expireat</strong>&nbsp;(key, time_in_seconds)</dt>
+<dd>
+R: Set absolute time to live in seconds on a key
+
+
+<h3>Parameters</h3>
+<ul>
+	
+	<li>
+	  key: 
+	</li>
+	
+	<li>
+	  time_in_seconds: 
+	</li>
+	
+</ul>
+
+
+
+
+
+
+
+
+</dd>
+
+
+
+
+<dt><a name="Sidereal:flushall"></a><strong>Sidereal:flushall</strong>&nbsp;()</dt>
+<dd>
+R: Remove all the keys from all the databases
+
+
+
+
+
+
+
+
+
+</dd>
+
+
+
+
+<dt><a name="Sidereal:flushdb"></a><strong>Sidereal:flushdb</strong>&nbsp;()</dt>
+<dd>
+R: Remove all the keys of the currently selected DB
+
+
+
+
+
+
+
+
+
+</dd>
+
+
+
+
+<dt><a name="Sidereal:get"></a><strong>Sidereal:get</strong>&nbsp;(key)</dt>
+<dd>
+R: Return the string value of the key
+
+
+<h3>Parameters</h3>
+<ul>
+	
+	<li>
+	  key: 
+	</li>
+	
+</ul>
+
+
+
+
+
+
+
+
+</dd>
+
+
+
+
+<dt><a name="Sidereal:get_response"></a><strong>Sidereal:get_response</strong>&nbsp;()</dt>
+<dd>
+Read and parse one response, passing on timeout if non-blocking.
+
+
+
+
+
+
+
+
+
+</dd>
+
+
+
+
+<dt><a name="Sidereal:getset"></a><strong>Sidereal:getset</strong>&nbsp;(key, value)</dt>
+<dd>
+R: Set a key to a string returning the old value of the key
+
+
+<h3>Parameters</h3>
+<ul>
+	
+	<li>
+	  key: 
+	</li>
+	
+	<li>
+	  value: 
+	</li>
+	
+</ul>
+
+
+
+
+
+
+
+
+</dd>
+
+
+
+
+<dt><a name="Sidereal:incr"></a><strong>Sidereal:incr</strong>&nbsp;(key)</dt>
+<dd>
+R: Increment the integer value of key
+
+
+<h3>Parameters</h3>
+<ul>
+	
+	<li>
+	  key: 
+	</li>
+	
+</ul>
+
+
+
+
+
+
+
+
+</dd>
+
+
+
+
+<dt><a name="Sidereal:incrby"></a><strong>Sidereal:incrby</strong>&nbsp;(key, integer)</dt>
+<dd>
+R: Increment the integer value of key by integer
+
+
+<h3>Parameters</h3>
+<ul>
+	
+	<li>
+	  key: 
+	</li>
+	
+	<li>
+	  integer: 
+	</li>
+	
+</ul>
+
+
+
+
+
+
+
+
+</dd>
+
+
+
+
+<dt><a name="Sidereal:info"></a><strong>Sidereal:info</strong>&nbsp;()</dt>
+<dd>
+R: Provide information and statistics about the server
+
+
+
+
+
+
+
+
+
+</dd>
+
+
+
+
+<dt><a name="Sidereal:keys"></a><strong>Sidereal:keys</strong>&nbsp;(pattern)</dt>
+<dd>
+R: Return an iterator listing all keys matching a given pattern
+
+
+<h3>Parameters</h3>
+<ul>
+	
+	<li>
+	  pattern: 
+	</li>
+	
+</ul>
+
+
+
+
+
+
+
+
+</dd>
+
+
+
+
+<dt><a name="Sidereal:lastsave"></a><strong>Sidereal:lastsave</strong>&nbsp;()</dt>
+<dd>
+R: Return the UNIX time stamp of the last successfully saving of the dataset on disk
+
+
+
+
+
+
+
+
+
+</dd>
+
+
+
+
+<dt><a name="Sidereal:lindex"></a><strong>Sidereal:lindex</strong>&nbsp;(key, integer)</dt>
+<dd>
+R: Return the element at index position from the List at key
+
+
+<h3>Parameters</h3>
+<ul>
+	
+	<li>
+	  key: 
+	</li>
+	
+	<li>
+	  integer: 
+	</li>
+	
+</ul>
+
+
+
+
+
+
+
+
+</dd>
+
+
+
+
+<dt><a name="Sidereal:llen"></a><strong>Sidereal:llen</strong>&nbsp;(key)</dt>
+<dd>
+R: Return the length of the List value at key
+
+
+<h3>Parameters</h3>
+<ul>
+	
+	<li>
+	  key: 
+	</li>
+	
+</ul>
+
+
+
+
+
+
+
+
+</dd>
+
+
+
+
+<dt><a name="Sidereal:lpop"></a><strong>Sidereal:lpop</strong>&nbsp;(key)</dt>
+<dd>
+R: Return and remove (atomically) the first element of the List at key
+
+
+<h3>Parameters</h3>
+<ul>
+	
+	<li>
+	  key: 
+	</li>
+	
+</ul>
+
+
+
+
+
+
+
+
+</dd>
+
+
+
+
+<dt><a name="Sidereal:lpush"></a><strong>Sidereal:lpush</strong>&nbsp;(key, value)</dt>
+<dd>
+R: Append an element to the head of the List value at key
+
+
+<h3>Parameters</h3>
+<ul>
+	
+	<li>
+	  key: 
+	</li>
+	
+	<li>
+	  value: 
+	</li>
+	
+</ul>
+
+
+
+
+
+
+
+
+</dd>
+
+
+
+
+<dt><a name="Sidereal:lrange"></a><strong>Sidereal:lrange</strong>&nbsp;(key, start_index, end_index)</dt>
+<dd>
+R: Return a range of elements from the List at key
+
+
+<h3>Parameters</h3>
+<ul>
+	
+	<li>
+	  key: 
+	</li>
+	
+	<li>
+	  start_index: 
+	</li>
+	
+	<li>
+	  end_index: 
+	</li>
+	
+</ul>
+
+
+
+
+
+
+
+
+</dd>
+
+
+
+
+<dt><a name="Sidereal:lrem"></a><strong>Sidereal:lrem</strong>&nbsp;(key, integer, value)</dt>
+<dd>
+R: Remove the first-N, last-N, or all the elements matching value from the List at key
+
+
+<h3>Parameters</h3>
+<ul>
+	
+	<li>
+	  key: 
+	</li>
+	
+	<li>
+	  integer: 
+	</li>
+	
+	<li>
+	  value: 
+	</li>
+	
+</ul>
+
+
+
+
+
+
+
+
+</dd>
+
+
+
+
+<dt><a name="Sidereal:lset"></a><strong>Sidereal:lset</strong>&nbsp;(key, integer, value)</dt>
+<dd>
+R: Set a new value as the element at index position of the List at key
+
+
+<h3>Parameters</h3>
+<ul>
+	
+	<li>
+	  key: 
+	</li>
+	
+	<li>
+	  integer: 
+	</li>
+	
+	<li>
+	  value: 
+	</li>
+	
+</ul>
+
+
+
+
+
+
+
+
+</dd>
+
+
+
+
+<dt><a name="Sidereal:ltrim"></a><strong>Sidereal:ltrim</strong>&nbsp;(key, start_index, end_index)</dt>
+<dd>
+R: Trim the list at key to the specified range of elements
+
+
+<h3>Parameters</h3>
+<ul>
+	
+	<li>
+	  key: 
+	</li>
+	
+	<li>
+	  start_index: 
+	</li>
+	
+	<li>
+	  end_index: 
+	</li>
+	
+</ul>
+
+
+
+
+
+
+
+
+</dd>
+
+
+
+
+<dt><a name="Sidereal:mget"></a><strong>Sidereal:mget</strong>&nbsp;(key_list)</dt>
+<dd>
+R: Multi-get, return the strings values of the keys
+
+
+<h3>Parameters</h3>
+<ul>
+	
+	<li>
+	  key_list: 
+	</li>
+	
+</ul>
+
+
+
+
+
+
+
+
+</dd>
+
+
+
+
+<dt><a name="Sidereal:monitor"></a><strong>Sidereal:monitor</strong>&nbsp;()</dt>
+<dd>
+R: Dump all the received requests in real time
+
+
+
+
+
+
+
+
+
+</dd>
+
+
+
+
+<dt><a name="Sidereal:move"></a><strong>Sidereal:move</strong>&nbsp;(key, db_index)</dt>
+<dd>
+R: Move the key from the currently selected DB to the DB having as index dbindex
+
+
+<h3>Parameters</h3>
+<ul>
+	
+	<li>
+	  key: 
+	</li>
+	
+	<li>
+	  db_index: 
+	</li>
+	
+</ul>
+
+
+
+
+
+
+
+
+</dd>
+
+
+
+
+<dt><a name="Sidereal:mset"></a><strong>Sidereal:mset</strong>&nbsp;(table)</dt>
+<dd>
+R: Set a multiple keys to multiple values in a single atomic operation
+
+
+<h3>Parameters</h3>
+<ul>
+	
+	<li>
+	  table: 
+	</li>
+	
+</ul>
+
+
+
+
+
+
+
+
+</dd>
+
+
+
+
+<dt><a name="Sidereal:msetnx"></a><strong>Sidereal:msetnx</strong>&nbsp;(table)</dt>
+<dd>
+R: Set a multiple keys to multiple values in a single atomic operation if none of the keys already exist
+
+
+<h3>Parameters</h3>
+<ul>
+	
+	<li>
+	  table: 
+	</li>
+	
+</ul>
+
+
+
+
+
+
+
+
+</dd>
+
+
+
+
+<dt><a name="Sidereal:pass"></a><strong>Sidereal:pass</strong>&nbsp;()</dt>
+<dd>
+Call pass hook (if any).
+
+
+
+
+
+
+
+
+
+<h3>See also:</h3>
+<ul>
+	
+	<li><a href="../files/sidereal.html#connect">
+		connect
+	</a>
+	
+</ul>
+
+</dd>
+
+
+
+
+<dt><a name="Sidereal:ping"></a><strong>Sidereal:ping</strong>&nbsp;()</dt>
+<dd>
+R: Ping the database
+
+
+
+
+
+
+
+
+
+</dd>
+
+
+
+
+<dt><a name="Sidereal:pipeline"></a><strong>Sidereal:pipeline</strong>&nbsp;()</dt>
+<dd>
+Begin a series of pipelined commands.
+
+
+
+
+
+<h3>Usage:</h3>
+Use :send_pipeline() to send them all, and then call :get_response() once per command. (Successful sends will return sidereal.PIPELINED.) Also, note that Redis will continue queueing pipelined commands until the send is complete, so pipelining too long a sequence of commands can make Redis run out of memory.
+
+
+
+
+
+<h3>See also:</h3>
+<ul>
+	
+	<li><a href="">
+		Sidereal:send_pipeline()
+	</a>
+	
+	<li><a href="">
+		Sidereal:get_response()
+	</a>
+	
+</ul>
+
+</dd>
+
+
+
+
+<dt><a name="Sidereal:proxy"></a><strong>Sidereal:proxy</strong>&nbsp;()</dt>
+<dd>
+Return a table that can be used as a proxy (via __index and __newindex). Strings, lists, sets, and zsets are supported.
+
+
+
+
+
+<h3>Usage</h3>
+<ul>
+	
+	<li>p.key = value
+	
+	<li>p.key = { "a", "LIST", "of", "keys" }
+	
+	<li>p.key = { a=true, lua=true, style=true, SET=true }
+	
+	<li>p.key = { a=10, weighted=23, ZSET=47 }
+	
+	<li>result = p.key  --which is converted back to the above
+	
+</ul>
+
+
+
+
+
+</dd>
+
+
+
+
+<dt><a name="Sidereal:quit"></a><strong>Sidereal:quit</strong>&nbsp;()</dt>
+<dd>
+R: Close the connection
+
+
+
+
+
+
+
+
+
+</dd>
+
+
+
+
+<dt><a name="Sidereal:randomkey"></a><strong>Sidereal:randomkey</strong>&nbsp;()</dt>
+<dd>
+R: Return a random key from the key space
+
+
+
+
+
+
+
+
+
+</dd>
+
+
+
+
+<dt><a name="Sidereal:receive"></a><strong>Sidereal:receive</strong>&nbsp;(len)</dt>
+<dd>
+Receive len bytes, passing on timeout if non-blocking.
+
+
+<h3>Parameters</h3>
+<ul>
+	
+	<li>
+	  len: 
+	</li>
+	
+</ul>
+
+
+
+
+
+
+
+
+</dd>
+
+
+
+
+<dt><a name="Sidereal:reload"></a><strong>Sidereal:reload</strong>&nbsp;()</dt>
+<dd>
+R: Force reload of data(?) (in official test suite)
+
+
+
+
+
+
+
+
+
+</dd>
+
+
+
+
+<dt><a name="Sidereal:rename"></a><strong>Sidereal:rename</strong>&nbsp;(key, key)</dt>
+<dd>
+R: Rename the old key in the new one, destroing the newname key if it already exists
+
+
+<h3>Parameters</h3>
+<ul>
+	
+	<li>
+	  key: 
+	</li>
+	
+	<li>
+	  key: 
+	</li>
+	
+</ul>
+
+
+
+
+
+
+
+
+</dd>
+
+
+
+
+<dt><a name="Sidereal:renamenx"></a><strong>Sidereal:renamenx</strong>&nbsp;(key, key)</dt>
+<dd>
+R: Rename the old key in the new one, if the newname key does not already exist
+
+
+<h3>Parameters</h3>
+<ul>
+	
+	<li>
+	  key: 
+	</li>
+	
+	<li>
+	  key: 
+	</li>
+	
+</ul>
+
+
+
+
+
+
+
+
+</dd>
+
+
+
+
+<dt><a name="Sidereal:rpop"></a><strong>Sidereal:rpop</strong>&nbsp;(key)</dt>
+<dd>
+R: Return and remove (atomically) the last element of the List at key
+
+
+<h3>Parameters</h3>
+<ul>
+	
+	<li>
+	  key: 
+	</li>
+	
+</ul>
+
+
+
+
+
+
+
+
+</dd>
+
+
+
+
+<dt><a name="Sidereal:rpoplpush"></a><strong>Sidereal:rpoplpush</strong>&nbsp;(key, key)</dt>
+<dd>
+R: Return and remove (atomically) the last element of the source List stored at _srckey_ and push the same element to the destination List stored at _dstkey_
+
+
+<h3>Parameters</h3>
+<ul>
+	
+	<li>
+	  key: 
+	</li>
+	
+	<li>
+	  key: 
+	</li>
+	
+</ul>
+
+
+
+
+
+
+
+
+</dd>
+
+
+
+
+<dt><a name="Sidereal:rpush"></a><strong>Sidereal:rpush</strong>&nbsp;(key, value)</dt>
+<dd>
+R: Append an element to the tail of the List value at key
+
+
+<h3>Parameters</h3>
+<ul>
+	
+	<li>
+	  key: 
+	</li>
+	
+	<li>
+	  value: 
+	</li>
+	
+</ul>
+
+
+
+
+
+
+
+
+</dd>
+
+
+
+
+<dt><a name="Sidereal:sadd"></a><strong>Sidereal:sadd</strong>&nbsp;(key, member)</dt>
+<dd>
+R: Add the specified member to the Set value at key
+
+
+<h3>Parameters</h3>
+<ul>
+	
+	<li>
+	  key: 
+	</li>
+	
+	<li>
+	  member: 
+	</li>
+	
+</ul>
+
+
+
+
+
+
+
+
+</dd>
+
+
+
+
+<dt><a name="Sidereal:save"></a><strong>Sidereal:save</strong>&nbsp;()</dt>
+<dd>
+R: Synchronously save the DB on disk
+
+
+
+
+
+
+
+
+
+</dd>
+
+
+
+
+<dt><a name="Sidereal:scard"></a><strong>Sidereal:scard</strong>&nbsp;(key)</dt>
+<dd>
+R: Return the number of elements (the cardinality) of the Set at key
+
+
+<h3>Parameters</h3>
+<ul>
+	
+	<li>
+	  key: 
+	</li>
+	
+</ul>
+
+
+
+
+
+
+
+
+</dd>
+
+
+
+
+<dt><a name="Sidereal:sdiff"></a><strong>Sidereal:sdiff</strong>&nbsp;(key_list)</dt>
+<dd>
+R: Return the difference between the Set stored at key1 and all the Sets key2, ..., keyN
+
+
+<h3>Parameters</h3>
+<ul>
+	
+	<li>
+	  key_list: 
+	</li>
+	
+</ul>
+
+
+
+
+
+
+
+
+</dd>
+
+
+
+
+<dt><a name="Sidereal:sdiffstore"></a><strong>Sidereal:sdiffstore</strong>&nbsp;(key, key_list)</dt>
+<dd>
+R: Compute the difference between the Set key1 and all the Sets key2, ..., keyN, and store the resulting Set at dstkey
+
+
+<h3>Parameters</h3>
+<ul>
+	
+	<li>
+	  key: 
+	</li>
+	
+	<li>
+	  key_list: 
+	</li>
+	
+</ul>
+
+
+
+
+
+
+
+
+</dd>
+
+
+
+
+<dt><a name="Sidereal:select"></a><strong>Sidereal:select</strong>&nbsp;(db_index)</dt>
+<dd>
+R: Select the DB having the specified index
+
+
+<h3>Parameters</h3>
+<ul>
+	
+	<li>
+	  db_index: 
+	</li>
+	
+</ul>
+
+
+
+
+
+
+
+
+</dd>
+
+
+
+
+<dt><a name="Sidereal:send"></a><strong>Sidereal:send</strong>&nbsp;(cmd)</dt>
+<dd>
+Send a raw string, don't wait for response.
+
+
+<h3>Parameters</h3>
+<ul>
+	
+	<li>
+	  cmd: 
+	</li>
+	
+</ul>
+
+
+
+
+
+
+
+
+</dd>
+
+
+
+
+<dt><a name="Sidereal:send_pipeline"></a><strong>Sidereal:send_pipeline</strong>&nbsp;()</dt>
+<dd>
+Send a queue of pipelined commands.
+
+
+
+
+
+
+
+
+
+</dd>
+
+
+
+
+<dt><a name="Sidereal:send_receive"></a><strong>Sidereal:send_receive</strong>&nbsp;(cmd)</dt>
+<dd>
+Send a raw string and (if not pipelining) return the response.
+
+
+<h3>Parameters</h3>
+<ul>
+	
+	<li>
+	  cmd: 
+	</li>
+	
+</ul>
+
+
+
+
+
+
+
+
+</dd>
+
+
+
+
+<dt><a name="Sidereal:set"></a><strong>Sidereal:set</strong>&nbsp;(key, value)</dt>
+<dd>
+R: Set a key to a string value
+
+
+<h3>Parameters</h3>
+<ul>
+	
+	<li>
+	  key: 
+	</li>
+	
+	<li>
+	  value: 
+	</li>
+	
+</ul>
+
+
+
+
+
+
+
+
+</dd>
+
+
+
+
+<dt><a name="Sidereal:setnx"></a><strong>Sidereal:setnx</strong>&nbsp;(key, value)</dt>
+<dd>
+R: Set a key to a string value if the key does not exist
+
+
+<h3>Parameters</h3>
+<ul>
+	
+	<li>
+	  key: 
+	</li>
+	
+	<li>
+	  value: 
+	</li>
+	
+</ul>
+
+
+
+
+
+
+
+
+</dd>
+
+
+
+
+<dt><a name="Sidereal:shutdown"></a><strong>Sidereal:shutdown</strong>&nbsp;()</dt>
+<dd>
+R: Synchronously save the DB on disk, then shutdown the server
+
+
+
+
+
+
+
+
+
+</dd>
+
+
+
+
+<dt><a name="Sidereal:sinter"></a><strong>Sidereal:sinter</strong>&nbsp;(key_list)</dt>
+<dd>
+R: Return the intersection between the Sets stored at key1, key2, ..., keyN
+
+
+<h3>Parameters</h3>
+<ul>
+	
+	<li>
+	  key_list: 
+	</li>
+	
+</ul>
+
+
+
+
+
+
+
+
+</dd>
+
+
+
+
+<dt><a name="Sidereal:sinterstore"></a><strong>Sidereal:sinterstore</strong>&nbsp;(key, key_list)</dt>
+<dd>
+R: Compute the intersection between the Sets stored at key1, key2, ..., keyN, and store the resulting Set at dstkey
+
+
+<h3>Parameters</h3>
+<ul>
+	
+	<li>
+	  key: 
+	</li>
+	
+	<li>
+	  key_list: 
+	</li>
+	
+</ul>
+
+
+
+
+
+
+
+
+</dd>
+
+
+
+
+<dt><a name="Sidereal:sismember"></a><strong>Sidereal:sismember</strong>&nbsp;(key, member)</dt>
+<dd>
+R: Test if the specified value is a member of the Set at key
+
+
+<h3>Parameters</h3>
+<ul>
+	
+	<li>
+	  key: 
+	</li>
+	
+	<li>
+	  member: 
+	</li>
+	
+</ul>
+
+
+
+
+
+
+
+
+</dd>
+
+
+
+
+<dt><a name="Sidereal:slaveof"></a><strong>Sidereal:slaveof</strong>&nbsp;(key, integer)</dt>
+<dd>
+R: Set/clear replication of another server.
+
+
+<h3>Parameters</h3>
+<ul>
+	
+	<li>
+	  key: 
+	</li>
+	
+	<li>
+	  integer: 
+	</li>
+	
+</ul>
+
+
+
+
+
+
+
+
+</dd>
+
+
+
+
+<dt><a name="Sidereal:smembers"></a><strong>Sidereal:smembers</strong>&nbsp;(key)</dt>
+<dd>
+R: Return all the members of the Set value at key
+
+
+<h3>Parameters</h3>
+<ul>
+	
+	<li>
+	  key: 
+	</li>
+	
+</ul>
+
+
+
+
+
+
+
+
+</dd>
+
+
+
+
+<dt><a name="Sidereal:smove"></a><strong>Sidereal:smove</strong>&nbsp;(key, key, member)</dt>
+<dd>
+R: Move the specified member from one Set to another atomically
+
+
+<h3>Parameters</h3>
+<ul>
+	
+	<li>
+	  key: 
+	</li>
+	
+	<li>
+	  key: 
+	</li>
+	
+	<li>
+	  member: 
+	</li>
+	
+</ul>
+
+
+
+
+
+
+
+
+</dd>
+
+
+
+
+<dt><a name="Sidereal:sort"></a><strong>Sidereal:sort</strong>&nbsp;(key, options)</dt>
+<dd>
+R: Sort the elements contained in the List, Set, or Sorted Set value at key.
+
+
+<h3>Parameters</h3>
+<ul>
+	
+	<li>
+	  key: 
+	</li>
+	
+	<li>
+	  options: by, start and count, get, asc or desc or alpha, store
+	</li>
+	
+</ul>
+
+
+
+
+<h3>Usage:</h3>
+e.g. r:sort("key", { start=10, count=25, alpha=true })
+
+
+
+
+
+</dd>
+
+
+
+
+<dt><a name="Sidereal:spop"></a><strong>Sidereal:spop</strong>&nbsp;(key)</dt>
+<dd>
+R: Remove and return (pop) a random element from the Set value at key
+
+
+<h3>Parameters</h3>
+<ul>
+	
+	<li>
+	  key: 
+	</li>
+	
+</ul>
+
+
+
+
+
+
+
+
+</dd>
+
+
+
+
+<dt><a name="Sidereal:srandmember"></a><strong>Sidereal:srandmember</strong>&nbsp;(key)</dt>
+<dd>
+R: Return a random member of the Set value at key
+
+
+<h3>Parameters</h3>
+<ul>
+	
+	<li>
+	  key: 
+	</li>
+	
+</ul>
+
+
+
+
+
+
+
+
+</dd>
+
+
+
+
+<dt><a name="Sidereal:srem"></a><strong>Sidereal:srem</strong>&nbsp;(key, member)</dt>
+<dd>
+R: Remove the specified member from the Set value at key
+
+
+<h3>Parameters</h3>
+<ul>
+	
+	<li>
+	  key: 
+	</li>
+	
+	<li>
+	  member: 
+	</li>
+	
+</ul>
+
+
+
+
+
+
+
+
+</dd>
+
+
+
+
+<dt><a name="Sidereal:sunion"></a><strong>Sidereal:sunion</strong>&nbsp;(key_list)</dt>
+<dd>
+R: Return the union between the Sets stored at key1, key2, ..., keyN
+
+
+<h3>Parameters</h3>
+<ul>
+	
+	<li>
+	  key_list: 
+	</li>
+	
+</ul>
+
+
+
+
+
+
+
+
+</dd>
+
+
+
+
+<dt><a name="Sidereal:sunionstore"></a><strong>Sidereal:sunionstore</strong>&nbsp;(key, key_list)</dt>
+<dd>
+R: Compute the union between the Sets stored at key1, key2, ..., keyN, and store the resulting Set at dstkey
+
+
+<h3>Parameters</h3>
+<ul>
+	
+	<li>
+	  key: 
+	</li>
+	
+	<li>
+	  key_list: 
+	</li>
+	
+</ul>
+
+
+
+
+
+
+
+
+</dd>
+
+
+
+
+<dt><a name="Sidereal:tostring"></a><strong>Sidereal:tostring</strong>&nbsp;()</dt>
+<dd>
+Sidereal->string.
+
+
+
+
+
+
+
+
+
+</dd>
+
+
+
+
+<dt><a name="Sidereal:ttl"></a><strong>Sidereal:ttl</strong>&nbsp;(key)</dt>
+<dd>
+R: Get the time to live in seconds of a key
+
+
+<h3>Parameters</h3>
+<ul>
+	
+	<li>
+	  key: 
+	</li>
+	
+</ul>
+
+
+
+
+
+
+
+
+</dd>
+
+
+
+
+<dt><a name="Sidereal:type"></a><strong>Sidereal:type</strong>&nbsp;(key)</dt>
+<dd>
+R: Return the type of the value stored at key
+
+
+<h3>Parameters</h3>
+<ul>
+	
+	<li>
+	  key: 
+	</li>
+	
+</ul>
+
+
+
+
+
+
+
+
+</dd>
+
+
+
+
+<dt><a name="Sidereal:zadd"></a><strong>Sidereal:zadd</strong>&nbsp;(key, float, member)</dt>
+<dd>
+R: Add the specified member to the Sorted Set value at key or update the score if it already exist
+
+
+<h3>Parameters</h3>
+<ul>
+	
+	<li>
+	  key: 
+	</li>
+	
+	<li>
+	  float: 
+	</li>
+	
+	<li>
+	  member: 
+	</li>
+	
+</ul>
+
+
+
+
+
+
+
+
+</dd>
+
+
+
+
+<dt><a name="Sidereal:zcard"></a><strong>Sidereal:zcard</strong>&nbsp;(key)</dt>
+<dd>
+R: Return the cardinality (number of elements) of the sorted set at key
+
+
+<h3>Parameters</h3>
+<ul>
+	
+	<li>
+	  key: 
+	</li>
+	
+</ul>
+
+
+
+
+
+
+
+
+</dd>
+
+
+
+
+<dt><a name="Sidereal:zincrby"></a><strong>Sidereal:zincrby</strong>&nbsp;(key, integer, member)</dt>
+<dd>
+R: If the member already exists increment its score by _increment_, otherwise add the member setting _increment_ as score
+
+
+<h3>Parameters</h3>
+<ul>
+	
+	<li>
+	  key: 
+	</li>
+	
+	<li>
+	  integer: 
+	</li>
+	
+	<li>
+	  member: 
+	</li>
+	
+</ul>
+
+
+
+
+
+
+
+
+</dd>
+
+
+
+
+<dt><a name="Sidereal:zrange"></a><strong>Sidereal:zrange</strong>&nbsp;(key, start_index, end_index)</dt>
+<dd>
+R: Return a range of elements from the sorted set at key
+
+
+<h3>Parameters</h3>
+<ul>
+	
+	<li>
+	  key: 
+	</li>
+	
+	<li>
+	  start_index: 
+	</li>
+	
+	<li>
+	  end_index: 
+	</li>
+	
+</ul>
+
+
+
+
+
+
+
+
+</dd>
+
+
+
+
+<dt><a name="Sidereal:zrangebyscore"></a><strong>Sidereal:zrangebyscore</strong>&nbsp;(key, float, float)</dt>
+<dd>
+R: Return all the elements with score >= min and score <= max (a range query) from the sorted set
+
+
+<h3>Parameters</h3>
+<ul>
+	
+	<li>
+	  key: 
+	</li>
+	
+	<li>
+	  float: 
+	</li>
+	
+	<li>
+	  float: 
+	</li>
+	
+</ul>
+
+
+
+
+
+
+
+
+</dd>
+
+
+
+
+<dt><a name="Sidereal:zrem"></a><strong>Sidereal:zrem</strong>&nbsp;(key, member)</dt>
+<dd>
+R: Remove the specified member from the Sorted Set value at key
+
+
+<h3>Parameters</h3>
+<ul>
+	
+	<li>
+	  key: 
+	</li>
+	
+	<li>
+	  member: 
+	</li>
+	
+</ul>
+
+
+
+
+
+
+
+
+</dd>
+
+
+
+
+<dt><a name="Sidereal:zremrangebyscore"></a><strong>Sidereal:zremrangebyscore</strong>&nbsp;(key, float, float)</dt>
+<dd>
+R: Remove all the elements with score >= min and score <= max from the sorted set
+
+
+<h3>Parameters</h3>
+<ul>
+	
+	<li>
+	  key: 
+	</li>
+	
+	<li>
+	  float: 
+	</li>
+	
+	<li>
+	  float: 
+	</li>
+	
+</ul>
+
+
+
+
+
+
+
+
+</dd>
+
+
+
+
+<dt><a name="Sidereal:zrevrange"></a><strong>Sidereal:zrevrange</strong>&nbsp;(key, start_index, end_index)</dt>
+<dd>
+R: Return a range of elements from the sorted set at key, exactly like ZRANGE, but the sorted set is ordered in traversed in reverse order, from the greatest to the smallest score
+
+
+<h3>Parameters</h3>
+<ul>
+	
+	<li>
+	  key: 
+	</li>
+	
+	<li>
+	  start_index: 
+	</li>
+	
+	<li>
+	  end_index: 
+	</li>
+	
+</ul>
+
+
+
+
+
+
+
+
+</dd>
+
+
+
+
+<dt><a name="Sidereal:zscore"></a><strong>Sidereal:zscore</strong>&nbsp;(key, value)</dt>
+<dd>
+R: Return the score associated with the specified element of the sorted set at key
+
+
+<h3>Parameters</h3>
+<ul>
+	
+	<li>
+	  key: 
+	</li>
+	
+	<li>
+	  value: 
+	</li>
+	
+</ul>
+
+
+
+
+
+
+
+
+</dd>
+
+
+
+
+<dt><a name="connect"></a><strong>connect</strong>&nbsp;(host, port, pass_hook)</dt>
+<dd>
+Create and return a Sidereal connection object.
+
+
+<h3>Parameters</h3>
+<ul>
+	
+	<li>
+	  host: 
+	</li>
+	
+	<li>
+	  port: 
+	</li>
+	
+	<li>
+	  pass_hook: If defined, use non-blocking IO, and run it to defer control. (use to send a 'pass' message to your coroutine scheduler.)
+	</li>
+	
+</ul>
+
+
+
+
+
+
+
+
+</dd>
+
+
+</dl>
+
+
+
+
+
+
+
+</div> <!-- id="content" -->
+
+</div> <!-- id="main" -->
+
+<div id="about">
+	<p><a href="http://validator.w3.org/check?uri=referer"><img src="http://www.w3.org/Icons/valid-xhtml10" alt="Valid XHTML 1.0!" height="31" width="88" /></a></p>
+</div> <!-- id="about" -->
+
+</div> <!-- id="container" -->	
+</body>
+</html>
