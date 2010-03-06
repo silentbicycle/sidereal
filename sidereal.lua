@@ -133,7 +133,7 @@ function Sidereal:send(cmd)
    while true do
       local ok, err = self._socket:send(cmd .. "\r\n")
       if ok then
-         trace("SEND(only):", cmd)
+         trace("SEND:", cmd)
          return true
       elseif err ~= "timeout" then return false, err
       else
@@ -151,7 +151,6 @@ function Sidereal:send_receive(cmd)
       p[#p+1] = cmd
       return true, PIPELINED
    else
-      trace("SEND:", cmd)
       local ok, err = self:send(cmd)
       if not ok then return false, err end
       return self:get_response()
