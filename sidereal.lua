@@ -40,7 +40,8 @@ local assert, error, ipairs, pairs, print, setmetatable, type =
    assert, error, ipairs, pairs, print, setmetatable, type
 local tonumber, tostring = tonumber, tostring
 
----Redis library for Lua, with optional non-blocking mode and Lua-style lists & sets.
+---Redis library for Lua, with optional non-blocking mode, pipelining,
+-- and Lua-style lists & sets.
 module("sidereal")
 
 local function conststr(k)
@@ -66,11 +67,11 @@ local function trace(...)
 end
 
 
-----------------
--- Sidereal --
-----------------
+-- ##############
+-- # Connection #
+-- ##############
 
-local Sidereal = {}           -- prototype
+local Sidereal = {}
 
 
 ---Sidereal->string.
@@ -108,13 +109,10 @@ end
 
 ---(Re)Connect to the specified Redis server.
 function Sidereal:connect()
-   local s = socket.connect(self.host, self.port)
+   local s, err = socket.connect(self.host, self.port)
+   if not s then return false, err end
+   self._socket = s
    if pass_hook then s:settimeout(0) end    --async operation
-   if not s then 
-      return false, fmt("Could not connect to %s port %d.",
-                        self.host, self.port)
-   end
-
    s:setoption("tcp-nodelay", true) --disable nagle's algorithm
    if self._dbindex then self:select(self._dbindex) end
    return true, s
@@ -130,15 +128,27 @@ end
 
 
 ---Send a raw string, don't wait for response.
-function Sidereal:send(cmd)
+function Sidereal:send(cmd, retry)
    local pass = self.pass
 
    while true do
       local ok, err = self._socket:send(cmd .. "\r\n")
       if ok then
-         trace("SEND:", cmd)
+         trace("SEND:", cmd, retry)
          return true
-      elseif err ~= "timeout" then return false, err
+      elseif err == "closed" then
+         if cmd:match("QUIT") then return true
+         elseif self._pipeline or retry then
+            trace(" -- Reconnect failed (or pipelining)")
+            return false, "closed"
+         else
+            local ok, err2 = self:connect()
+            if ok then
+               return self:send(cmd, true)
+            else return false, err2 or "unknown error(2)"
+            end
+         end
+      elseif err ~= "timeout" then return false, err or "unknown error"
       else
          self:pass()
       end
@@ -147,16 +157,32 @@ end
 
 
 ---Send a raw string and (if not pipelining) return the response.
-function Sidereal:send_receive(cmd)
+function Sidereal:send_receive(cmd, retry)
    if self._pipeline then
       trace("PIPELINED:", cmd)
       local p = self._pipeline
       p[#p+1] = cmd
       return true, PIPELINED
    else
-      local ok, err = self:send(cmd)
+      local ok, err, rest = self:send(cmd, retry)
       if not ok then return false, err end
-      return self:get_response()
+      ok, rest = self:get_response()
+      if ok then
+         return ok, rest
+      elseif rest == "closed" then
+         if cmd:match("QUIT") then return true
+         elseif retry then return false, "closed"
+         else
+            ok, err = self:connect()
+            if ok then
+               return self:send_receive(cmd, true)
+            else
+               return false, err
+            end
+         end
+      else
+         return false, rest
+      end
    end
 end
 
@@ -166,10 +192,11 @@ end
 ----------------
 
 ---Begin a series of pipelined commands.
--- @usage Use :send_pipeline() to send them all, and then call :get_response() once
--- per command. (Successful sends will return sidereal.PIPELINED.) Also, note that
--- Redis will continue queueing pipelined commands until the send is complete, so
--- pipelining too long a sequence of commands can make Redis run out of memory.
+-- @usage Use :send_pipeline() to send them all, and then call :get_response()
+-- once per command. (Successful sends will return sidereal.PIPELINED.)<br>
+-- Also, note that (as of Redis 1.2.2), Redis will continue queueing
+-- pipelined commands until the send is complete, so pipelining a very
+-- large sequence of commands can make Redis run out of memory.
 -- @see Sidereal:send_pipeline()
 -- @see Sidereal:get_response()
 function Sidereal:pipeline()
@@ -450,9 +477,9 @@ local function list_to_set(r_a, res)
 end
 
 
---------------
--- Commands --
---------------
+-- ############
+-- # Commands #
+-- ############
 
 -- Sidereal handling
 
@@ -494,11 +521,13 @@ cmd("KEYS", "p",
 function Sidereal:randomkey() end
 cmd("RANDOMKEY", nil)
 
----R: Rename the old key in the new one, destroing the newname key if it already exists
+---R: Rename the old key in the new one, destroing the newname key if it
+--    already exists
 function Sidereal:rename(key, key) end
 cmd("RENAME", "kk")
 
----R: Rename the old key in the new one, if the newname key does not already exist
+---R: Rename the old key in the new one, if the newname key does not
+--    already exist
 function Sidereal:renamenx(key, key) end
 cmd("RENAMENX", "kk")
 
@@ -528,7 +557,8 @@ cmd("SELECT", "d",
       end }
  )
 
----R: Move the key from the currently selected DB to the DB having as index dbindex
+---R: Move the key from the currently selected DB to the DB having as
+--    index dbindex
 function Sidereal:move(key, db_index) end
 cmd("MOVE", "kd",
     { post_hook=num_to_bool })
@@ -569,7 +599,8 @@ function Sidereal:mset(table) end
 cmd("MSET", "T",
     { post_hook=num_to_bool })
 
----R: Set a multiple keys to multiple values in a single atomic operation if none of the keys already exist
+---R: Set a multiple keys to multiple values in a single atomic operation
+--    if none of the keys already exist
 function Sidereal:msetnx(table) end
 cmd("MSETNX", "T",
     { post_hook=num_to_bool })
@@ -621,7 +652,8 @@ cmd("LINDEX", "ki")
 function Sidereal:lset(key, integer, value) end
 cmd("LSET", "kiv")
 
----R: Remove the first-N, last-N, or all the elements matching value from the List at key
+---R: Remove the first-N, last-N, or all the elements matching value from
+--    the List at key
 function Sidereal:lrem(key, integer, value) end
 cmd("LREM", "kiv")
 
@@ -633,7 +665,9 @@ cmd("LPOP", "k")
 function Sidereal:rpop(key) end
 cmd("RPOP", "k")
 
----R: Return and remove (atomically) the last element of the source List stored at _srckey_ and push the same element to the destination List stored at _dstkey_
+---R: Return and remove (atomically) the last element of the source List
+--    stored at _srckey_ and push the same element to the destination
+--    List stored at _dstkey_
 function Sidereal:rpoplpush(key, key) end
 cmd("RPOPLPUSH", "kk")
 
@@ -667,12 +701,14 @@ function Sidereal:sismember(key, member) end
 cmd("SISMEMBER", "km",
     { post_hook=num_to_bool })
 
----R: Return the intersection between the Sets stored at key1, key2, ..., keyN
+---R: Return the intersection between the Sets stored at
+--    key1, key2, ..., keyN
 function Sidereal:sinter(key_list) end
 cmd("SINTER", "K",
     { post_hook=list_to_set })
 
----R: Compute the intersection between the Sets stored at key1, key2, ..., keyN, and store the resulting Set at dstkey
+---R: Compute the intersection between the Sets stored at key1,
+--    key2, ..., keyN, and store the resulting Set at dstkey
 function Sidereal:sinterstore(key, key_list) end
 cmd("SINTERSTORE", "kK")
 
@@ -681,16 +717,19 @@ function Sidereal:sunion(key_list) end
 cmd("SUNION", "K",
     { post_hook=list_to_set })
 
----R: Compute the union between the Sets stored at key1, key2, ..., keyN, and store the resulting Set at dstkey
+---R: Compute the union between the Sets stored at key1, key2, ..., keyN,
+--    and store the resulting Set at dstkey
 function Sidereal:sunionstore(key, key_list) end
 cmd("SUNIONSTORE", "kK")
 
----R: Return the difference between the Set stored at key1 and all the Sets key2, ..., keyN
+---R: Return the difference between the Set stored at key1 and all the
+--    Sets key2, ..., keyN
 function Sidereal:sdiff(key_list) end
 cmd("SDIFF", "K",
     { post_hook=list_to_set })
 
----R: Compute the difference between the Set key1 and all the Sets key2, ..., keyN, and store the resulting Set at dstkey
+---R: Compute the difference between the Set key1 and all the Sets
+--    key2, ..., keyN, and store the resulting Set at dstkey
 function Sidereal:sdiffstore(key, key_list) end
 cmd("SDIFFSTORE", "kK")
 
@@ -706,7 +745,8 @@ cmd("SRANDMEMBER", "k")
 
 -- Commands operating on sorted sets
 
----R: Add the specified member to the Sorted Set value at key or update the score if it already exist
+---R: Add the specified member to the Sorted Set value at key or update
+--    the score if it already exist
 function Sidereal:zadd(key, float, member) end
 cmd("ZADD", "kfm")
 
@@ -714,15 +754,19 @@ cmd("ZADD", "kfm")
 function Sidereal:zrem(key, member) end
 cmd("ZREM", "km")
 
----R: If the member already exists increment its score by _increment_, otherwise add the member setting _increment_ as score
+---R: If the member already exists increment its score by _increment_,
+--    otherwise add the member setting _increment_ as score
 function Sidereal:zincrby(key, integer, member) end
 cmd("ZINCRBY", "kim")
 
----R: Return a range of elements from the sorted set at key, exactly like ZRANGE, but the sorted set is ordered in traversed in reverse order, from the greatest to the smallest score
+---R: Return a range of elements from the sorted set at key, exactly
+--    like ZRANGE, but the sorted set is ordered in traversed in reverse
+--    order, from the greatest to the smallest score
 function Sidereal:zrevrange(key, start_index, end_index) end
 cmd("ZREVRANGE", "kse")
 
----R: Return all the elements with score >= min and score <= max (a range query) from the sorted set
+---R: Return all the elements with score >= min and score <= max (a
+--    range query) from the sorted set
 function Sidereal:zrangebyscore(key, float, float) end
 cmd("ZRANGEBYSCORE", "kff",
     { pre_hook=function(raw_args, msg)
@@ -738,11 +782,13 @@ cmd("ZRANGEBYSCORE", "kff",
 function Sidereal:zcard(key) end
 cmd("ZCARD", "k")
 
----R: Return the score associated with the specified element of the sorted set at key
+---R: Return the score associated with the specified element of the
+--    sorted set at key
 function Sidereal:zscore(key, value) end
 cmd("ZSCORE", "kv")
 
----R: Remove all the elements with score >= min and score <= max from the sorted set
+---R: Remove all the elements with score >= min and score <= max from the
+--    sorted set
 function Sidereal:zremrangebyscore(key, float, float) end
 cmd("ZREMRANGEBYSCORE", "kff")
 
@@ -766,7 +812,8 @@ cmd("SAVE", nil)
 function Sidereal:bgsave() end
 cmd("BGSAVE", nil)
 
----R: Return the UNIX time stamp of the last successfully saving of the dataset on disk
+---R: Return the UNIX time stamp of the last successfully saving of the
+--    dataset on disk
 function Sidereal:lastsave() end
 cmd("LASTSAVE", nil)
 
@@ -860,9 +907,9 @@ function Sidereal:sort(key, options)
 end
 
 
------------
--- Proxy --
------------
+-- #########
+-- # Proxy #
+-- #########
 
 ---Return a table that can be used as a proxy (via __index and __newindex).
 -- Strings, lists, sets, and zsets are supported.

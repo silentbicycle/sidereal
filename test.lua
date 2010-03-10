@@ -19,7 +19,7 @@ require "lunatest"
 
 
 local fmt, floor, random = string.format, math.floor, math.random
-local do_slow, do_auth = true, false
+local do_slow, do_auth, do_reconnect = true, false, false
 
 
 -- for locally overriding the debug flag
@@ -48,8 +48,7 @@ function setup(name)
                 if trace_nb then print(" -- pass", pass_ct) end
              end
    end
-   R = assert(sidereal.connect("localhost", 6379, pass),
-              "Cannot connect to redis-server on localhost:6379")
+   R = assert(sidereal.connect("localhost", 6379, pass))
    R:flushall()                 --oh no! my data!
 end
 
@@ -1966,6 +1965,17 @@ function test_proxy_getset_other_types()
    assert_equal("false", pr.myfalse)
    assert_equal("true", pr.mytrue)
    assert_equal("23", pr.mynum)
+end
+
+
+if do_reconnect then
+   -- Set your Redis timeout to less than the usual 300 for this one!
+   local timeout = 5
+   function test_timeout_reconnect_and_ping()
+      print(fmt("\nSleeping for %d seconds (to test reconnecting)", 2*timeout))
+      sleep(2*timeout)
+      assert_true(R:ping())
+   end
 end
 
 
