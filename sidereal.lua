@@ -85,8 +85,9 @@ local ConnMT = { __index = Sidereal, __tostring = Sidereal.tostring }
 
 
 ---Create and return a Sidereal connection object.
--- @param pass_hook If defined, use non-blocking IO, and run it to defer control.
--- (use to send a 'pass' message to your coroutine scheduler.)
+-- @param pass_hook If defined, uses non-blocking IO, and this will be
+--     run whenever the command would block. (Use this to send a 'pass'
+--     message to your coroutine scheduler.)
 function connect(host, port, pass_hook)
    host = host or "localhost"
    port = port or 6379
@@ -192,11 +193,12 @@ end
 ----------------
 
 ---Begin a series of pipelined commands.
--- @usage Use :send_pipeline() to send them all, and then call :get_response()
--- once per command. (Successful sends will return sidereal.PIPELINED.)<br>
--- Also, note that (as of Redis 1.2.2), Redis will continue queueing
--- pipelined commands until the send is complete, so pipelining a very
--- large sequence of commands can make Redis run out of memory.
+-- @usage Use self:send_pipeline() to send them all, and then call
+-- self:get_response() once per command. (Successful sends will return
+-- sidereal.PIPELINED.)<br>
+-- Also, note that (at least as of Redis 1.2.2), Redis will continue
+-- queueing pipelined commands until the send is complete, so pipelining
+-- a very large sequence of commands can make Redis run out of memory.
 -- @see Sidereal:send_pipeline()
 -- @see Sidereal:get_response()
 function Sidereal:pipeline()
@@ -657,15 +659,15 @@ cmd("LSET", "kiv")
 function Sidereal:lrem(key, integer, value) end
 cmd("LREM", "kiv")
 
----R: Return and remove (atomically) the first element of the List at key
+---R: Return and atomically remove the first element of the List at key
 function Sidereal:lpop(key) end
 cmd("LPOP", "k")
 
----R: Return and remove (atomically) the last element of the List at key
+---R: Return and atomically remove the last element of the List at key
 function Sidereal:rpop(key) end
 cmd("RPOP", "k")
 
----R: Return and remove (atomically) the last element of the source List
+---R: Return and atomically remove the last element of the source List
 --    stored at _srckey_ and push the same element to the destination
 --    List stored at _dstkey_
 function Sidereal:rpoplpush(key, key) end
@@ -861,11 +863,11 @@ cmd("SLAVEOF", "ki",
 function Sidereal:ping() end
 cmd("PING", nil)
 
----R: Set debug flag (in official test suite)
+---R: Set debug flag (undocumented, in official test suite)
 function Sidereal:debug() end
 cmd("DEBUG", nil)
 
----R: Force reload of data(?) (in official test suite)
+---R: Force reload of data(?) (undocumented, in official test suite)
 function Sidereal:reload() end
 cmd("RELOAD", nil)
 

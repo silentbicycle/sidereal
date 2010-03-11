@@ -100,7 +100,7 @@
 
 	<tr>
 	<td class="name" nowrap><a href="#Sidereal:debug">Sidereal:debug</a>&nbsp;()</td>
-	<td class="summary">R: Set debug flag (in official test suite) </td>
+	<td class="summary">R: Set debug flag (undocumented, in official test suite) </td>
 	</tr>
 
 	<tr>
@@ -195,7 +195,7 @@
 
 	<tr>
 	<td class="name" nowrap><a href="#Sidereal:lpop">Sidereal:lpop</a>&nbsp;(key)</td>
-	<td class="summary">R: Return and remove (atomically) the first element of the List at key </td>
+	<td class="summary">R: Return and atomically remove the first element of the List at key </td>
 	</tr>
 
 	<tr>
@@ -285,7 +285,7 @@
 
 	<tr>
 	<td class="name" nowrap><a href="#Sidereal:reload">Sidereal:reload</a>&nbsp;()</td>
-	<td class="summary">R: Force reload of data(?) (in official test suite) </td>
+	<td class="summary">R: Force reload of data(?) (undocumented, in official test suite) </td>
 	</tr>
 
 	<tr>
@@ -300,12 +300,12 @@
 
 	<tr>
 	<td class="name" nowrap><a href="#Sidereal:rpop">Sidereal:rpop</a>&nbsp;(key)</td>
-	<td class="summary">R: Return and remove (atomically) the last element of the List at key </td>
+	<td class="summary">R: Return and atomically remove the last element of the List at key </td>
 	</tr>
 
 	<tr>
 	<td class="name" nowrap><a href="#Sidereal:rpoplpush">Sidereal:rpoplpush</a>&nbsp;(key, key)</td>
-	<td class="summary">R: Return and remove (atomically) the last element of the source List stored at _srckey_ and push the same element to the destination List stored at _dstkey_ </td>
+	<td class="summary">R: Return and atomically remove the last element of the source List stored at _srckey_ and push the same element to the destination List stored at _dstkey_ </td>
 	</tr>
 
 	<tr>
@@ -344,7 +344,7 @@
 	</tr>
 
 	<tr>
-	<td class="name" nowrap><a href="#Sidereal:send">Sidereal:send</a>&nbsp;(cmd)</td>
+	<td class="name" nowrap><a href="#Sidereal:send">Sidereal:send</a>&nbsp;(cmd, retry)</td>
 	<td class="summary">Send a raw string, don't wait for response.</td>
 	</tr>
 
@@ -354,7 +354,7 @@
 	</tr>
 
 	<tr>
-	<td class="name" nowrap><a href="#Sidereal:send_receive">Sidereal:send_receive</a>&nbsp;(cmd)</td>
+	<td class="name" nowrap><a href="#Sidereal:send_receive">Sidereal:send_receive</a>&nbsp;(cmd, retry)</td>
 	<td class="summary">Send a raw string and (if not pipelining) return the response.</td>
 	</tr>
 
@@ -612,7 +612,7 @@ R: Return the number of keys in the current db
 
 <dt><a name="Sidereal:debug"></a><strong>Sidereal:debug</strong>&nbsp;()</dt>
 <dd>
-R: Set debug flag (in official test suite)
+R: Set debug flag (undocumented, in official test suite)
 
 
 
@@ -1076,7 +1076,7 @@ R: Return the length of the List value at key
 
 <dt><a name="Sidereal:lpop"></a><strong>Sidereal:lpop</strong>&nbsp;(key)</dt>
 <dd>
-R: Return and remove (atomically) the first element of the List at key
+R: Return and atomically remove the first element of the List at key
 
 
 <h3>Parameters</h3>
@@ -1443,7 +1443,7 @@ Begin a series of pipelined commands.
 
 
 <h3>Usage:</h3>
-Use :send_pipeline() to send them all, and then call :get_response() once per command. (Successful sends will return sidereal.PIPELINED.) Also, note that Redis will continue queueing pipelined commands until the send is complete, so pipelining too long a sequence of commands can make Redis run out of memory.
+Use self:send_pipeline() to send them all, and then call self:get_response() once per command. (Successful sends will return sidereal.PIPELINED.)<br> Also, note that (at least as of Redis 1.2.2), Redis will continue queueing pipelined commands until the send is complete, so pipelining a very large sequence of commands can make Redis run out of memory.
 
 
 
@@ -1561,7 +1561,7 @@ Receive len bytes, passing on timeout if non-blocking.
 
 <dt><a name="Sidereal:reload"></a><strong>Sidereal:reload</strong>&nbsp;()</dt>
 <dd>
-R: Force reload of data(?) (in official test suite)
+R: Force reload of data(?) (undocumented, in official test suite)
 
 
 
@@ -1638,7 +1638,7 @@ R: Rename the old key in the new one, if the newname key does not already exist
 
 <dt><a name="Sidereal:rpop"></a><strong>Sidereal:rpop</strong>&nbsp;(key)</dt>
 <dd>
-R: Return and remove (atomically) the last element of the List at key
+R: Return and atomically remove the last element of the List at key
 
 
 <h3>Parameters</h3>
@@ -1664,7 +1664,7 @@ R: Return and remove (atomically) the last element of the List at key
 
 <dt><a name="Sidereal:rpoplpush"></a><strong>Sidereal:rpoplpush</strong>&nbsp;(key, key)</dt>
 <dd>
-R: Return and remove (atomically) the last element of the source List stored at _srckey_ and push the same element to the destination List stored at _dstkey_
+R: Return and atomically remove the last element of the source List stored at _srckey_ and push the same element to the destination List stored at _dstkey_
 
 
 <h3>Parameters</h3>
@@ -1877,7 +1877,7 @@ R: Select the DB having the specified index
 
 
 
-<dt><a name="Sidereal:send"></a><strong>Sidereal:send</strong>&nbsp;(cmd)</dt>
+<dt><a name="Sidereal:send"></a><strong>Sidereal:send</strong>&nbsp;(cmd, retry)</dt>
 <dd>
 Send a raw string, don't wait for response.
 
@@ -1887,6 +1887,10 @@ Send a raw string, don't wait for response.
 	
 	<li>
 	  cmd: 
+	</li>
+	
+	<li>
+	  retry: 
 	</li>
 	
 </ul>
@@ -1920,7 +1924,7 @@ Send a queue of pipelined commands.
 
 
 
-<dt><a name="Sidereal:send_receive"></a><strong>Sidereal:send_receive</strong>&nbsp;(cmd)</dt>
+<dt><a name="Sidereal:send_receive"></a><strong>Sidereal:send_receive</strong>&nbsp;(cmd, retry)</dt>
 <dd>
 Send a raw string and (if not pipelining) return the response.
 
@@ -1930,6 +1934,10 @@ Send a raw string and (if not pipelining) return the response.
 	
 	<li>
 	  cmd: 
+	</li>
+	
+	<li>
+	  retry: 
 	</li>
 	
 </ul>
@@ -2746,7 +2754,7 @@ Create and return a Sidereal connection object.
 	</li>
 	
 	<li>
-	  pass_hook: If defined, use non-blocking IO, and run it to defer control. (use to send a 'pass' message to your coroutine scheduler.)
+	  pass_hook: If defined, uses non-blocking IO, and this will be run whenever the command would block. (Use this to send a 'pass' message to your coroutine scheduler.)
 	</li>
 	
 </ul>
