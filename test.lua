@@ -1307,9 +1307,6 @@ function test_PUBSUB_patterned_subscription()
 	assert_equal("channel_*", res[2])
 	assert_equal(1, res[3])
 	
-	for k, v in pairs(res) do
-		print(tostring(k) .. " - " .. tostring(v))
-	end
 	R:punsubscribe("channel_id")
 	
 	local ok, res = R:listen()
