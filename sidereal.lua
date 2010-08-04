@@ -869,15 +869,14 @@ cmd("PUNSUBSCRIBE", "k",
 function Sidereal:unsubscribe_all() end
 cmd("PUNSUBSCRIBE", nil, { noreply=true })
 
----R: Listen for subscriptions
-function Sidereal:listen() 
-	local ok, rest = self:get_response()
-	return ok, rest
-	--la respuesta es un multibulk con
-	--tipo
+
+--[[
+   R: Listen for subscriptions
+   Response is a multibulk value
+	--type
 	--channel 
 	--message
-	--[[
+   From one of this possible types	
 	closed
 	subscribe
 	unsubscribe
@@ -885,10 +884,11 @@ function Sidereal:listen()
 	psubscribe
 	punsubscribe
 	pmessage
-	]]--
+]]--
+function Sidereal:listen() 
+	local ok, rest = self:get_response()
+	return ok, rest
 end
-
-
 
 
 -- Remote server control commands
