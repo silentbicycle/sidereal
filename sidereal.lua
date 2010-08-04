@@ -273,16 +273,20 @@ function Sidereal:bulk_multi_receive(count)
       local ok, read = self:receive("*l")
       if not ok then return false, read end
       trace("   READLINE:", ok, read)
-      assert(read:sub(1, 1) == "$", read:sub(1, 1))
-      local length = assert(tonumber(read:sub(2)), "Bad length")
-      if length == -1 then
-         ok, read = true, NULL
-      else
-         ok, read = self:bulk_receive(length + 2)
-      end
-      trace(" -- BULK_READ: ", ok, read)
-      if not ok then return false, read end
-      rs[i] = read
+	  if read:sub(1, 1) == ":" then --integer
+		rs[i]  = tonumber(read:sub(2))
+	  elseif read:sub(1, 1) == "$" then
+	    assert(read:sub(1, 1) == "$", read:sub(1, 1))
+	    local length = assert(tonumber(read:sub(2)), "Bad length")
+	    if length == -1 then
+	        ok, read = true, NULL
+	    else
+	        ok, read = self:bulk_receive(length + 2)
+	    end
+	    trace(" -- BULK_READ: ", ok, read)
+	    if not ok then return false, read end
+	    rs[i] = read
+	  end
    end
 
    if true then return true, rs end
@@ -454,7 +458,12 @@ local function cmd(rfun, arg_types, opts)
          end
 
          if opts.pre_hook then send = opts.pre_hook(raw_args, send) end
-         local ok, res = self:send_receive(send)
+		 local ok, res
+		 if (opts.noreply) then
+			 ok, res= self:send(send)
+		 else
+			 ok, res= self:send_receive(send)
+		 end
          if ok then
             local ph = opts.post_hook
             if ph then return ph(raw_args, res, self) end
@@ -828,6 +837,60 @@ function Sidereal:bgrewriteaof() end
 cmd("BGREWRITEAOF", nil)
 
 
+---R: Publish message to a channel
+function Sidereal:publish(channel, message) end
+cmd("PUBLISH", "kv", { noreply=true })
+
+---R: Subscribe to a channel
+function Sidereal:suscribe(channel) end
+cmd("SUBSCRIBE", "ki", { noreply=true })
+
+
+---R: Unsubscribe from a channel
+function Sidereal:unsubscribe(channel) end
+cmd("UNSUBSCRIBE", "ki", { noreply=true })
+
+---R: Unsubscribe from all channel
+function Sidereal:unsubscribe_all() end
+cmd("UNSUBSCRIBE", nil, { noreply=true })
+
+
+---R: Subscribe to a pattern
+function Sidereal:psuscribe(pattern) end
+cmd("PSUBSCRIBE", "p", { noreply=true })
+
+
+---R: Unsubscribe from a pattern
+function Sidereal:punsubscribe(pattern) end
+cmd("PUNSUBSCRIBE", "k",
+    { noreply=true })
+
+---R: Unsubscribe from all patterns
+function Sidereal:unsubscribe_all() end
+cmd("PUNSUBSCRIBE", nil, { noreply=true })
+
+---R: Listen for subscriptions
+function Sidereal:listen() 
+	local ok, rest = self:get_response()
+	return ok, rest
+	--la respuesta es un multibulk con
+	--tipo
+	--channel 
+	--message
+	--[[
+	closed
+	subscribe
+	unsubscribe
+	message
+	psubscribe
+	punsubscribe
+	pmessage
+	]]--
+end
+
+
+
+
 -- Remote server control commands
 
 ---R: Provide information and statistics about the server
@@ -870,6 +933,7 @@ cmd("DEBUG", nil)
 ---R: Force reload of data(?) (undocumented, in official test suite)
 function Sidereal:reload() end
 cmd("RELOAD", nil)
+
 
 
 local known_sort_opts = { by=true, start=true, count=true, get=true,

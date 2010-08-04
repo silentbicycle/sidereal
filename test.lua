@@ -1273,6 +1273,57 @@ function test_ZCARD_basics()
 end
 
 
+
+function test_PUBSUB_basic_subscription()
+	R:subscribe("channel_id")
+	
+	local ok, res = R:listen()
+	
+	assert_false(ok == false or res == "closed")
+	
+	assert_equal("subscribe", res[1])
+	assert_equal("channel_id", res[2])
+	assert_equal(1, res[3])
+	
+	R:unsubscribe("channel_id")
+	
+	local ok, res = R:listen()
+	assert_false(ok == false or res == "closed")
+	
+	assert_equal("subscribe", res[1])
+	assert_equal("channel_id", res[2])
+	assert_equal(0, res[3])
+end
+
+
+function test_PUBSUB_patterned_subscription()
+	R:psubscribe("channel_*")
+	
+	local ok, res = R:listen()
+	
+	assert_false(ok == false or res == "closed")
+	
+	assert_equal("psubscribe", res[1])
+	assert_equal("channel_*", res[2])
+	assert_equal(1, res[3])
+	
+	for k, v in pairs(res) do
+		print(tostring(k) .. " - " .. tostring(v))
+	end
+	R:punsubscribe("channel_id")
+	
+	local ok, res = R:listen()
+	assert_false(ok == false or res == "closed")
+
+	assert_equal("punsubscribe", res[1])
+	assert_equal("channel_*", res[2])
+	assert_equal(0, res[3])
+end
+
+function test_PUBSUB_basic_publish()
+  R:publish("channel_id", "message")
+end
+
 function test_ZCARD_non_existing_key()
    assert_equal(0, R:zcard("ztmp-blabla"))
 end
