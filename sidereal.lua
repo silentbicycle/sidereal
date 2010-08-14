@@ -153,7 +153,7 @@ function Sidereal:send(cmd, retry)
       else
          self:pass()
       end
-   end   
+   end
 end
 
 
@@ -222,7 +222,7 @@ function Sidereal:get_response()
    local ok, line = self:receive("*l")
    trace("RECV: ", ok, line)
    if not ok then return false, line end
-   
+
    return self:handle_response(line)
 end
 
@@ -411,7 +411,7 @@ local function gen_arg_funs(funcname, spec)
          for i=1,#tts do if not tts[i](args[i]) then return false end end
          return true
       end
-   
+
    local format = function(t)
          local args = {}
          for i=1,#fs do
@@ -429,15 +429,15 @@ end
 
 
 -- Register a command.
-local function cmd(rfun, arg_types, opts) 
+local function cmd(rfun, arg_types, opts)
    opts = opts or {}
    local name = rfun:lower()
    arg_types = arg_types or ""
    local format_args, check = gen_arg_funs(name, arg_types)
    local bulk_send = opts.bulk_send or arg_types == "T"
 
-   Sidereal[name] = 
-      function(self, ...) 
+   Sidereal[name] =
+      function(self, ...)
          local raw_args, send = {...}
          if opts.arg_hook then raw_args = arg_hook(raw_args) end
          local arglist, err = format_args(raw_args)
@@ -451,7 +451,7 @@ local function cmd(rfun, arg_types, opts)
             send = concat(b)
          else
             if not arglist then return false, err end
-            
+
             if self.DEBUG then check(arglist) end
             local b = { rfun, " ", concat(arglist, " ")}
             send = concat(b)
@@ -837,6 +837,8 @@ function Sidereal:bgrewriteaof() end
 cmd("BGREWRITEAOF", nil)
 
 
+-- Pub/Sub
+
 ---R: Publish message to a channel
 function Sidereal:publish(channel, message) end
 cmd("PUBLISH", "kv", { noreply=true })
@@ -845,20 +847,17 @@ cmd("PUBLISH", "kv", { noreply=true })
 function Sidereal:suscribe(channel) end
 cmd("SUBSCRIBE", "ki", { noreply=true })
 
-
 ---R: Unsubscribe from a channel
 function Sidereal:unsubscribe(channel) end
 cmd("UNSUBSCRIBE", "ki", { noreply=true })
 
----R: Unsubscribe from all channel
+---R: Unsubscribe from all channels
 function Sidereal:unsubscribe_all() end
 cmd("UNSUBSCRIBE", nil, { noreply=true })
-
 
 ---R: Subscribe to a pattern
 function Sidereal:psuscribe(pattern) end
 cmd("PSUBSCRIBE", "p", { noreply=true })
-
 
 ---R: Unsubscribe from a pattern
 function Sidereal:punsubscribe(pattern) end
@@ -869,14 +868,13 @@ cmd("PUNSUBSCRIBE", "k",
 function Sidereal:unsubscribe_all() end
 cmd("PUNSUBSCRIBE", nil, { noreply=true })
 
-
 --[[
    R: Listen for subscriptions
    Response is a multibulk value
 	--type
-	--channel 
+	--channel
 	--message
-   From one of this possible types	
+   From one of these possible types
 	closed
 	subscribe
 	unsubscribe
@@ -885,7 +883,7 @@ cmd("PUNSUBSCRIBE", nil, { noreply=true })
 	punsubscribe
 	pmessage
 ]]--
-function Sidereal:listen() 
+function Sidereal:listen()
 	local ok, rest = self:get_response()
 	return ok, rest
 end
@@ -965,10 +963,10 @@ function Sidereal:sort(key, options)
    if asc then b[#b+1] = "ASC" elseif desc then b[#b+1] = "DESC" end
    if alpha then b[#b+1] = "ALPHA" end
    if store then b[#b+1] = fmt("STORE %s", store) end
-   
+
    trace("-- SORTING:", concat(b, " "))
 
-   local ok, res = self:send_receive(concat(b, " ")) 
+   local ok, res = self:send_receive(concat(b, " "))
    if ok then return res else return false, res end
 end
 
@@ -1011,7 +1009,7 @@ function Sidereal:proxy()
       end
       return true
    end
-   
+
    local function set_set(key, set)
       for v in pairs(set) do
          local ok, err = self:sadd(key, v)
@@ -1019,7 +1017,7 @@ function Sidereal:proxy()
       end
       return true
    end
-   
+
    local function set_zset(key, zset)
       for v,wt in pairs(zset) do
          local ok, err = self:zadd(key, wt, v)

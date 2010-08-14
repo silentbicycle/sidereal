@@ -1,0 +1,9 @@
+* Thanks to Alexaner Gladysh (agladysh) for adding the rockspec.
+* Thanks to guilespi for adding the pub/sub commands.
+
+* TODO
+ * Commands added to Redis since 1.2.2. 
+ * The current implementation of non-blocking sockets is a bit
+   closely tied to LuaSocket. It might be worth allowing connect
+   to take an existing userdata socket, using an external event
+   loop rather than polling, etc.

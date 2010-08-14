@@ -267,6 +267,21 @@
 	</tr>
 
 	<tr>
+	<td class="name" nowrap><a href="#Sidereal:psuscribe">Sidereal:psuscribe</a>&nbsp;(pattern)</td>
+	<td class="summary">R: Subscribe to a pattern </td>
+	</tr>
+
+	<tr>
+	<td class="name" nowrap><a href="#Sidereal:publish">Sidereal:publish</a>&nbsp;(channel, message)</td>
+	<td class="summary">R: Publish message to a channel </td>
+	</tr>
+
+	<tr>
+	<td class="name" nowrap><a href="#Sidereal:punsubscribe">Sidereal:punsubscribe</a>&nbsp;(pattern)</td>
+	<td class="summary">R: Unsubscribe from a pattern </td>
+	</tr>
+
+	<tr>
 	<td class="name" nowrap><a href="#Sidereal:quit">Sidereal:quit</a>&nbsp;()</td>
 	<td class="summary">R: Close the connection </td>
 	</tr>
@@ -432,6 +447,11 @@
 	</tr>
 
 	<tr>
+	<td class="name" nowrap><a href="#Sidereal:suscribe">Sidereal:suscribe</a>&nbsp;(channel)</td>
+	<td class="summary">R: Subscribe to a channel </td>
+	</tr>
+
+	<tr>
 	<td class="name" nowrap><a href="#Sidereal:tostring">Sidereal:tostring</a>&nbsp;()</td>
 	<td class="summary">Sidereal->string.</td>
 	</tr>
@@ -444,6 +464,21 @@
 	<tr>
 	<td class="name" nowrap><a href="#Sidereal:type">Sidereal:type</a>&nbsp;(key)</td>
 	<td class="summary">R: Return the type of the value stored at key </td>
+	</tr>
+
+	<tr>
+	<td class="name" nowrap><a href="#Sidereal:unsubscribe">Sidereal:unsubscribe</a>&nbsp;(channel)</td>
+	<td class="summary">R: Unsubscribe from a channel </td>
+	</tr>
+
+	<tr>
+	<td class="name" nowrap><a href="#Sidereal:unsubscribe_all">Sidereal:unsubscribe_all</a>&nbsp;()</td>
+	<td class="summary">R: Unsubscribe from all patterns </td>
+	</tr>
+
+	<tr>
+	<td class="name" nowrap><a href="#Sidereal:unsubscribe_all">Sidereal:unsubscribe_all</a>&nbsp;()</td>
+	<td class="summary">R: Unsubscribe from all patterns </td>
 	</tr>
 
 	<tr>
@@ -1496,6 +1531,88 @@ Return a table that can be used as a proxy (via __index and __newindex). Strings
 
 
 
+<dt><a name="Sidereal:psuscribe"></a><strong>Sidereal:psuscribe</strong>&nbsp;(pattern)</dt>
+<dd>
+R: Subscribe to a pattern
+
+
+<h3>Parameters</h3>
+<ul>
+	
+	<li>
+	  pattern: 
+	</li>
+	
+</ul>
+
+
+
+
+
+
+
+
+</dd>
+
+
+
+
+<dt><a name="Sidereal:publish"></a><strong>Sidereal:publish</strong>&nbsp;(channel, message)</dt>
+<dd>
+R: Publish message to a channel
+
+
+<h3>Parameters</h3>
+<ul>
+	
+	<li>
+	  channel: 
+	</li>
+	
+	<li>
+	  message: 
+	</li>
+	
+</ul>
+
+
+
+
+
+
+
+
+</dd>
+
+
+
+
+<dt><a name="Sidereal:punsubscribe"></a><strong>Sidereal:punsubscribe</strong>&nbsp;(pattern)</dt>
+<dd>
+R: Unsubscribe from a pattern
+
+
+<h3>Parameters</h3>
+<ul>
+	
+	<li>
+	  pattern: 
+	</li>
+	
+</ul>
+
+
+
+
+
+
+
+
+</dd>
+
+
+
+
 <dt><a name="Sidereal:quit"></a><strong>Sidereal:quit</strong>&nbsp;()</dt>
 <dd>
 R: Close the connection
@@ -2375,6 +2492,32 @@ R: Compute the union between the Sets stored at key1, key2, ..., keyN, and store
 
 
 
+<dt><a name="Sidereal:suscribe"></a><strong>Sidereal:suscribe</strong>&nbsp;(channel)</dt>
+<dd>
+R: Subscribe to a channel
+
+
+<h3>Parameters</h3>
+<ul>
+	
+	<li>
+	  channel: 
+	</li>
+	
+</ul>
+
+
+
+
+
+
+
+
+</dd>
+
+
+
+
 <dt><a name="Sidereal:tostring"></a><strong>Sidereal:tostring</strong>&nbsp;()</dt>
 <dd>
 Sidereal->string.
@@ -2431,6 +2574,66 @@ R: Return the type of the value stored at key
 	</li>
 	
 </ul>
+
+
+
+
+
+
+
+
+</dd>
+
+
+
+
+<dt><a name="Sidereal:unsubscribe"></a><strong>Sidereal:unsubscribe</strong>&nbsp;(channel)</dt>
+<dd>
+R: Unsubscribe from a channel
+
+
+<h3>Parameters</h3>
+<ul>
+	
+	<li>
+	  channel: 
+	</li>
+	
+</ul>
+
+
+
+
+
+
+
+
+</dd>
+
+
+
+
+<dt><a name="Sidereal:unsubscribe_all"></a><strong>Sidereal:unsubscribe_all</strong>&nbsp;()</dt>
+<dd>
+R: Unsubscribe from all patterns
+
+
+
+
+
+
+
+
+
+</dd>
+
+
+
+
+<dt><a name="Sidereal:unsubscribe_all"></a><strong>Sidereal:unsubscribe_all</strong>&nbsp;()</dt>
+<dd>
+R: Unsubscribe from all patterns
+
 
 
 
