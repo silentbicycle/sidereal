@@ -521,15 +521,8 @@ cmd("TYPE", "k")
 
 ---R: Return an iterator listing all keys matching a given pattern
 function Sidereal:keys(pattern) end
-cmd("KEYS", "p",
-    { post_hook =
-      function(raw_args, res)
-         if raw_args[2] then return res end
-         local ks = {}
-         for k in string.gmatch(res, "([^ ]+)") do ks[#ks+1] = k end
-         return ks
-      end})
-
+cmd("KEYS", "p")
+   
 ---R: Return a random key from the key space
 function Sidereal:randomkey() end
 cmd("RANDOMKEY", nil)

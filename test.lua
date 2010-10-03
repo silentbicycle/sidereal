@@ -209,7 +209,10 @@ function test_keys2()
 
    local res = R:keys("key*", true)
    assert_true(res)
-   assert_equal("key_x key_y key_z", res)
+   table.sort(res)
+   assert_equal("key_x", res[1])
+   assert_equal("key_y", res[2])
+   assert_equal("key_z", res[3])
 end
 
 
