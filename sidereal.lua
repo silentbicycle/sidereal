@@ -362,7 +362,6 @@ local formatter = {
              return table.concat{ fmt("%d\r\n", s:len()), s, "\r\n" }
           end,
    bulklist = function(array)
-                 error("KILL THIS")
                  if type(array) ~= "table" then array = { array } end
                  return concat(array, " ")
               end,
@@ -384,6 +383,7 @@ local types = { k={ "key", formatter.simple, typetest.str },
                 d={ "db_index", formatter.simple, typetest.int },
                 v={ "value", formatter.bulk, typetest.str },
                 K={ "key_list", formatter.bulklist, typetest.strlist },
+                V={ "value_list", formatter.bulk, typetest.strlist },
                 i={ "integer", formatter.simple, typetest.int },
                 f={ "float", formatter.simple, typetest.float },
                 p={ "pattern", formatter.simple, typetest.str },
@@ -405,7 +405,7 @@ local function gen_arg_funs(funcname, spec)
 
    for arg in gmatch(spec, ".") do
       local row = types[arg]
-      if not row then error("unmatched ", arg) end
+      if not row then error("unmatched: " .. arg) end
       fs[#fs+1], tts[#tts+1] = row[2], row[3]
    end
 
@@ -441,7 +441,7 @@ local function cmd(rfun, arg_types, opts)
    Sidereal[name] =
       function(self, ...)
          local raw_args, send = {...}
-         if opts.arg_hook then raw_args = arg_hook(raw_args) end
+         if opts.arg_hook then raw_args = opts.arg_hook(raw_args) end
          local arglist, err = format_args(raw_args)
          if bulk_send then
             local b = {}
@@ -487,6 +487,13 @@ local function list_to_set(r_a, res)
    local set = {}
    for _,k in ipairs(res) do set[k] = true end
    return set
+end
+
+
+local function pair_list_to_set(r_a, r)
+   local t = {}
+   for i=1,#r,2 do t[r[i]] = r[i+1] end
+   return t
 end
 
 
@@ -761,8 +768,7 @@ cmd("SUNIONSTORE", "kK")
 ---R: Return the difference between the Set stored at key1 and all the
 --    Sets key2, ..., keyN
 function Sidereal:sdiff(key_list) end
-cmd("SDIFF", "K",
-    { post_hook=list_to_set })
+cmd("SDIFF", "K", { post_hook=list_to_set })
 
 ---R: Compute the difference between the Set key1 and all the Sets
 --    key2, ..., keyN, and store the resulting Set at dstkey
@@ -866,18 +872,51 @@ cmd("ZUNIONSTORE", "kiK")
 
 -- Commands operating on hashes
 -- TODO:
--- HDEL
--- HEXISTS
--- HGET
--- HGETALL
--- HINCRBY
--- HKEYS
--- HLEN
--- HMGET
--- HMSET
--- HSET
--- HVALS
 
+---R: Set the hash field to the specified value.
+function Sidereal:hset(key, field, value) end
+cmd("HSET", "kfv")
+
+---R: Get a hash's field.
+function Sidereal:hget(key, field) end
+cmd("HGET", "kv")
+
+---R: Get all of a hash's fields.
+function Sidereal:hgetall(key) end
+cmd("HGETALL", "k", { post_hook=pair_list_to_set })
+
+
+---R: Delete a hash's field.
+function Sidereal:hdel(key, field) end
+cmd("HDEL", "kv")
+
+---R: Check if a hash has a field.
+function Sidereal:hexists(key, field) end
+cmd("HEXISTS", "kv")
+
+---R: Return the number of values in a hash.
+function Sidereal:hlen(key) end
+cmd("HLEN", "k")
+
+---R: Return a hash's keys.
+function Sidereal:hkeys(key) end
+cmd("HKEYS", "k")
+
+---R: Return a hash's vals.
+function Sidereal:hvals(key) end
+cmd("HVALS", "k")
+
+---R: Increment the integer value of the hash at key on field with int.
+function Sidereal:hincrby(key, field, int) end
+cmd("HINCRBY", "kfi")
+
+---R: Atomically get the values for multiple fields in a hash. CURRENTLY BROKEN.
+function Sidereal:hmget(key, ...) end
+cmd("HMGET", "kV")
+
+---R: Atomically set the values for multiple fields in a hash. CURRENTLY BROKEN.
+function Sidereal:hmset(hashkey, table) end
+cmd("HMSET", "kT")
 
 
 -- Persistence control commands
@@ -914,13 +953,7 @@ cmd("CONFIG", "kv",
                      return "get *" end
                   return msg
                end,
-    post_hook=function(raw_args, res, sdb)
-                 local t = {}
-                 for i=1,#res,2 do
-                    t[res[i]] = res[i+1]
-                 end
-                 return t
-              end }
+    post_hook=pair_list_to_set }
 )
 
 

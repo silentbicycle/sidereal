@@ -1620,6 +1620,86 @@ function test_ZUNIONSTORE_weight()
 end
 
 
+function test_HSET_HGET()
+   R:hset("foo", "bar", "baz")
+   assert_equal("baz", R:hget("foo", "bar"))
+end
+
+
+function test_HGETALL()
+   R:hset("foo", "bar", "rab")
+   R:hset("foo", "baz", "zab")
+   local res = R:hgetall("foo")
+   assert_equal("zab", res.baz)
+   assert_equal("rab", res.bar)
+end
+
+
+function test_HDEL()
+   R:hset("foo", "bar", "rab")
+   R:hset("foo", "baz", "zab")
+   local res = R:hgetall("foo")
+   assert_equal("zab", res.baz)
+   assert_equal("rab", res.bar)
+   R:hdel("foo", "baz")
+   res = R:hgetall("foo")
+   assert_equal("rab", res.bar)
+end
+
+
+function test_HEXISTS()
+   R:hset("foo", "bar", "baz")
+   assert_true(R:hexists("foo", "bar"))
+end
+
+
+function test_HLEN()
+   R:hset("foo", "bar", "rab")
+   R:hset("foo", "baz", "zab")
+   R:hset("foo", "blah", "halb")
+   assert_equal(3, R:hlen("foo"))
+end
+
+
+function test_HKEYS_HVALS()
+   R:hset("foo", "bar", "rab")
+   R:hset("foo", "baz", "zab")
+   R:hset("foo", "blah", "halb")
+   local res = R:hkeys("foo")
+   table.sort(res)
+   cmp({"bar", "baz", "blah"}, res)
+
+   res = R:hvals("foo")
+   table.sort(res)
+   cmp({"halb", "rab", "zab"}, res)
+end
+
+
+function test_HINCRYBY()
+   R:hset("foo", "bar", 10)
+   R:hincrby("foo", "bar", 40)
+   assert_equal("50", R:hget("foo", "bar"))
+end
+
+
+function test_HMGET()
+   fail("broken")
+   R:hset("foo", "bar", "rab")
+   R:hset("foo", "baz", "zab")
+   R:hset("foo", "blah", "halb")
+   R:hmget("foo", "bar", "baz", "blah")
+end
+
+
+function test_HMSET()
+   fail("broken")
+   R:hmset("foo", { foo="bar", bar="baz" })
+   assert_equal("bar", R:hget("foo", "foo"))
+   assert_equal("baz", R:hget("foo", "bar"))
+end
+
+
+
 function test_EXPIRE_do_not_set_timeouts_multiple_times()
    R:set("x", "foobar")
    local v1 = R:expire("x", 5)
