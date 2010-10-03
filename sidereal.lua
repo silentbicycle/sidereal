@@ -44,6 +44,8 @@ local tonumber, tostring = tonumber, tostring
 -- and Lua-style lists & sets.
 module("sidereal")
 
+VERSION = 1.0 -- for Redis 1.2.2
+
 local function conststr(k)
    return function () return k end
 end
