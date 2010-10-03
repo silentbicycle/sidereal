@@ -54,6 +54,7 @@ end
 
 
 function teardown(name, elapsed)
+   undbg()
    R:quit()
 end
 
@@ -1486,6 +1487,15 @@ if do_slow then
       end
    end
 end
+
+
+function test_ZREMRANGEBYRANK()
+   for i=1,25 do
+      R:zadd("zset", i, 3*i)
+   end
+   assert_equal(11, R:zremrangebyrank("zset", 5, 15)) -- remove 5th to 15th
+   assert_equal(14, R:zcard("zset"))
+end
    
 
 local function z_init2()
@@ -1544,6 +1554,72 @@ function test_Sorted_sets_posinf_and_neginf_handling()
 end
 
 
+function test_ZCOUNT()
+   R:zadd("zset", -100, "a")
+   R:zadd("zset", 200, "b")
+   R:zadd("zset", -300, "c")
+   R:zadd("zset", 1000000, "d")
+   assert_equal(2, R:zcount("zset", -300, 199))
+   assert_equal(3, R:zcount("zset", -300, 200))
+end
+
+
+function test_ZRANK()
+   R:zadd("zset", -100, "a")
+   R:zadd("zset", 200, "b")
+   R:zadd("zset", -300, "c")
+   R:zadd("zset", 1000000, "d")
+   assert_equal(2, R:zrank("zset", "b"))
+end
+
+
+function test_ZREVRANK()
+   R:zadd("zset", -100, "a")
+   R:zadd("zset", 200, "b")
+   R:zadd("zset", -300, "c")
+   R:zadd("zset", 1000000, "d")
+   assert_equal(1, R:zrevrank("zset", "b"))
+end
+
+
+function test_ZINTERSTORE()
+   R:zadd("zset", -100, "a")
+   R:zadd("zset", -300, "c")
+   
+   R:zadd("zset2", -100, "a")
+   R:zadd("zset2", 200, "b")
+
+   assert_equal(1, R:zinterstore("inter", 2, "zset", "zset2"))
+   local res, err = R:zrange("inter", -500, 500)
+   assert_equal("a", res[1], err)
+end
+
+
+function test_ZUNIONSTORE()
+   R:zadd("zset", -100, "a")
+   R:zadd("zset", -300, "c")
+   
+   R:zadd("zset2", -100, "a")
+   R:zadd("zset2", 200, "b")
+
+   assert_equal(3, R:zunionstore("union", 2, "zset", "zset2"))
+   cmp(R:zrange("union", -500, 500), {"c", "a", "b"})
+end
+
+
+function test_ZUNIONSTORE_weight()
+   R:zadd("zset", -100, "a")
+   R:zadd("zset", -300, "c")
+   
+   R:zadd("zset2", -100, "a")
+   R:zadd("zset2", 200, "b")
+
+   assert_equal(3, R:zunionstore("union", 2, "zset", "zset2", "WEIGHTS", 1, 3))
+   cmp(R:zrange("union", -500, 500, "WITHSCORES"),
+       {"a", "-400", "c", "-300", "b", "600"})
+end
+
+
 function test_EXPIRE_do_not_set_timeouts_multiple_times()
    R:set("x", "foobar")
    local v1 = R:expire("x", 5)
@@ -1553,6 +1629,12 @@ function test_EXPIRE_do_not_set_timeouts_multiple_times()
    cmp({v1, v2, v3, v4}, {1, 5, 0, 5})
 end
 
+
+function test_SETEX()
+   R:setex("x", 2, "foobar")
+   assert_equal("foobar", R:get("x"))
+   assert_equal(2, R:ttl("x"))
+end
 
 function test_EXPIRE___It_should_be_still_possible_to_read_x()
    R:set("x", "foobar")
@@ -2021,6 +2103,55 @@ function test_proxy_getset_other_types()
    assert_equal("23", pr.mynum)
 end
 
+function test_APPEND()
+   assert_false(R:exists("mykey"))
+   assert_equal(6, R:append("mykey", "Hello "))
+   assert_equal(11, R:append("mykey", "World"))
+   assert_equal("Hello World", R:get("mykey"))
+end
+
+
+function test_SUBSTR()
+   R:set("foo", "Hello World")
+   assert_equal("World", R:substr("foo", 6, 13))
+end
+
+
+function test_CONFIG()
+   local res = R:config("get", "maxmemory")
+   assert_table(res)
+   assert_true(res.maxmemory)
+   -- I'm not going to test changing the configuration...
+end
+
+
+function test_BLPOP()
+   R:rpush("mylist", "x")
+   R:rpush("mylist", "y")
+   local list, val = R:blpop("mylist", 3)
+   assert_equal("mylist", list)
+   assert_equal("x", val)
+   list, val = R:blpop("mylist", 3)
+   assert_equal("mylist", list)
+   assert_equal("y", val)
+   list, val = R:blpop("nolist", 1)
+   assert_equal(false, list)
+   assert_equal("timeout", val)
+end
+
+function test_BRPOP()
+   R:rpush("mylist", "x")
+   R:rpush("mylist", "y")
+   local list, val = R:brpop("mylist", 3)
+   assert_equal("mylist", list)
+   assert_equal("y", val)
+   list, val = R:brpop("mylist", 3)
+   assert_equal("mylist", list)
+   assert_equal("x", val)
+   list, val = R:brpop("nolist", 1)
+   assert_equal(false, list)
+   assert_equal("timeout", val)
+end
 
 if do_reconnect then
    -- Set your Redis timeout to less than the usual 300 for this one!

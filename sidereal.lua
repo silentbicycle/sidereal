@@ -458,14 +458,14 @@ local function cmd(rfun, arg_types, opts)
             local b = { rfun, " ", concat(arglist, " ")}
             send = concat(b)
          end
-
+         
          if opts.pre_hook then send = opts.pre_hook(raw_args, send) end
-		 local ok, res
-		 if (opts.noreply) then
-			 ok, res= self:send(send)
-		 else
-			 ok, res= self:send_receive(send)
-		 end
+         local ok, res
+         if (opts.noreply) then
+            ok, res= self:send(send)
+         else
+            ok, res= self:send_receive(send)
+         end
          if ok then
             local ph = opts.post_hook
             if ph then return ph(raw_args, res, self) end
@@ -584,6 +584,10 @@ cmd("FLUSHALL", nil)
 function Sidereal:set(key, value) end
 cmd("SET", "kv")
 
+---R: Atomically set a key to a string value and expiration time.
+function Sidereal:setex(key, value) end
+cmd("SETEX", "kiv")
+
 ---R: Return the string value of the key
 function Sidereal:get(key) end
 cmd("GET", "k")
@@ -626,6 +630,14 @@ cmd("DECR", "k")
 ---R: Decrement the integer value of key by integer
 function Sidereal:decrby(key, integer) end
 cmd("DECRBY", "ki")
+
+---R: Append a value to a key, returning the length.
+function Sidereal:append(key, val) end
+cmd("APPEND", "kv")
+
+---R: Return a substring of a larger string
+function Sidereal:substr(key, from, to) end
+cmd("SUBSTR", "kii")
 
 
 -- Commands operating on lists
@@ -670,6 +682,24 @@ cmd("LPOP", "k")
 ---R: Return and atomically remove the last element of the List at key
 function Sidereal:rpop(key) end
 cmd("RPOP", "k")
+
+---R: Blocking LPOP from any of the lists given, with timeout.
+-- @return Returns (listname, val) or (false, "timeout").
+function Sidereal:blpop(...) end
+cmd("BLPOP", "Ki",
+    { post_hook =
+      function(raw_args, res)
+         if #res == 0 then return false, "timeout" else return res[1], res[2] end
+      end })
+
+---R: Blocking RPOP from any of the lists given, with timeout.
+-- @return Returns (listname, val) or (false, "timeout").
+function Sidereal:brpop(...) end
+cmd("BRPOP", "Ki",
+    { post_hook =
+      function(raw_args, res)
+         if #res == 0 then return false, "timeout" else return res[1], res[2] end
+      end })
 
 ---R: Return and atomically remove the last element of the source List
 --    stored at _srckey_ and push the same element to the destination
@@ -784,6 +814,12 @@ cmd("ZRANGEBYSCORE", "kff",
                   return msg
                end})
 
+
+---R: Remove all elements in the sorted set at key with rank between from and to.
+function Sidereal:zremrangebyrank(key, from, to) end
+cmd("ZREMRANGEBYRANK", "kii")
+
+
 ---R: Return the cardinality (number of elements) of the sorted set at key
 function Sidereal:zcard(key) end
 cmd("ZCARD", "k")
@@ -806,6 +842,42 @@ cmd("ZRANGE", "kse",
                     return msg .. " withscores"
                  else return msg end
               end })
+
+---R: Return count of elements within the score range.
+function Sidereal:zcount(key, from, to) end
+cmd("ZCOUNT", "kii")
+
+---R: Return rank of member in a ZSET (zero-based).
+function Sidereal:zrank(key, member) end
+cmd("ZRANK", "kv")
+
+---R: Return rank of member in a ZSET (zero-based), scored highest to lowest.
+function Sidereal:zrevrank(key, member) end
+cmd("ZREVRANK", "kv")
+
+---R: Store intersection of zsets under keys k1..kN with optional weights w1..wN at dskey.
+function Sidereal:zinterstore(dstkey, keycount, ...) end
+cmd("ZINTERSTORE", "kiK")
+
+---R: Store union of zsets under keys k1..kN with optional weights w1..wN at dskey.
+function Sidereal:zunionstore(dstkey, keycount, ...) end
+cmd("ZUNIONSTORE", "kiK")
+
+
+-- Commands operating on hashes
+-- TODO:
+-- HDEL
+-- HEXISTS
+-- HGET
+-- HGETALL
+-- HINCRBY
+-- HKEYS
+-- HLEN
+-- HMGET
+-- HMSET
+-- HSET
+-- HVALS
+
 
 
 -- Persistence control commands
@@ -830,6 +902,26 @@ cmd("SHUTDOWN", nil)
 ---R: Rewrite the append only file in background when it gets too big
 function Sidereal:bgrewriteaof() end
 cmd("BGREWRITEAOF", nil)
+
+---R: Get/Set config options.
+-- @usage R:config("get", "pattern")
+-- @usage R:config("set", "property", "value")
+-- @return Get - table with all properties matching pattern
+function Sidereal:config(action, ...) end
+cmd("CONFIG", "kv",
+    { pre_hook=function(raw_args, msg)
+                  if raw_args[1] == "get" and raw_args[2] == nil then
+                     return "get *" end
+                  return msg
+               end,
+    post_hook=function(raw_args, res, sdb)
+                 local t = {}
+                 for i=1,#res,2 do
+                    t[res[i]] = res[i+1]
+                 end
+                 return t
+              end }
+)
 
 
 -- Pub/Sub
@@ -883,6 +975,12 @@ function Sidereal:listen()
 	return ok, rest
 end
 
+-- TODO:
+-- EXEC
+-- DISCARD
+-- UNWATCH
+-- WATCH
+
 
 -- Remote server control commands
 
@@ -926,7 +1024,6 @@ cmd("DEBUG", nil)
 ---R: Force reload of data(?) (undocumented, in official test suite)
 function Sidereal:reload() end
 cmd("RELOAD", nil)
-
 
 
 local known_sort_opts = { by=true, start=true, count=true, get=true,
