@@ -294,7 +294,10 @@ end
 
 
 function test_incr_w_spaces()
-   R:set("novar", "    11    ")
+   -- Apparently, onverting strings w/ trailing spaces to numbres
+   -- isn't allowed as of Redis 2.0.
+   --R:set("novar", "    11    ")
+   R:set("novar", "    11")
    assert_equal(12, R:incr("novar"))
 end
 
@@ -1577,7 +1580,8 @@ end
 function test_EXPIREAT_Check_for_EXPIRE_alike_behavior()
    R:del("x")
    R:set("x", "foo")
-   R:expireat("x", now() + 15)
+   local t_plus_15 = math.floor(now() + 15)
+   R:expireat("x", t_plus_15)   --now whole seconds only
    local ttl = R:ttl("x")
    assert_true(ttl > 10 and ttl <= 15)
 end
