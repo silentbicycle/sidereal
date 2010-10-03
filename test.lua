@@ -1122,7 +1122,7 @@ end
 
 function test_RANDOMKEY_against_empty_DB()
    R:flushdb()
-   assert_equal("", R:randomkey())
+   assert_equal(NULL, R:randomkey())
 end
 
 
@@ -1130,7 +1130,7 @@ function test_RANDOMKEY_regression_1()
    R:flushdb()
    R:set("x", 10)
    R:del("x")
-   assert_equal("", R:randomkey())
+   assert_equal(NULL, R:randomkey())
 end
 
 
@@ -1278,7 +1278,6 @@ function test_PUBSUB_basic_subscription()
 	R:subscribe("channel_id")
 	
 	local ok, res = R:listen()
-	
 	assert_false(ok == false or res == "closed")
 	
 	assert_equal("subscribe", res[1])
