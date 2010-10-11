@@ -6,7 +6,8 @@ A [Redis][] library for Lua, with:
  * Lua-style lists and sets
  * a proxy table interface to the database
 
-As of Redis 1.2.2, all commands are supported.
+As of Redis 2.0.2, all new commands are supported (except HMGET and HMSET,
+which are temporarily broken).
 
 To connect to a Redis server, use:
     c = sidereal.connect(host, port [, pass_hook])
