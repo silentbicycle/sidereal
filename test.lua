@@ -2233,6 +2233,29 @@ function test_BRPOP()
    assert_equal("timeout", val)
 end
 
+function test_MULTI_success()
+   R:multi()
+   assert_equal("QUEUED", R:set("foo", "bar"))
+   -- it's not set yet, both
+   assert_equal("QUEUED", R:get("foo"))
+   R:set("bar", "foo")
+   local res = R:exec()
+   -- results from queued operations are returned
+   assert_equal("bar", res[2])
+
+   -- now keys should actually be set
+   assert_equal("foo", R:get("bar"))
+   assert_equal("bar", R:get("foo"))
+end
+
+function test_MULTI_abort()
+   R:multi()
+   R:set("foo", "bar")
+   assert_equal("OK", R:discard())
+   -- shouldn't be set
+   assert_equal(NULL, R:get"foo")
+end
+
 if do_reconnect then
    -- Set your Redis timeout to less than the usual 300 for this one!
    local timeout = 5

@@ -1008,12 +1008,29 @@ function Sidereal:listen()
 	return ok, rest
 end
 
--- TODO:
--- EXEC
--- DISCARD
--- UNWATCH
--- WATCH
 
+---R: Begin an atomic transaction of multiple commands
+function Sidereal:multi() end
+cmd("MULTI", nil)
+
+---R: Complete the current transaction
+function Sidereal:exec() end
+cmd("EXEC", nil)
+
+---R: Abort the current transaction
+function Sidereal:discard() end
+cmd("DISCARD", nil)
+
+--[[
+-- Not available in 2.0.2...
+---R: Set key(s) whose modification should abort the current transaction
+function Sidereal:watch(...) end
+cmd("WATCH", "K")
+
+---R: Clear the set of WATCHed keys
+function Sidereal:unwatch() end
+cmd("UNWATCH", nil)
+--]]
 
 -- Remote server control commands
 
