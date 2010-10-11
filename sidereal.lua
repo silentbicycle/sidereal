@@ -433,7 +433,7 @@ end
 -- Register a command.
 local function cmd(rfun, arg_types, opts)
    opts = opts or {}
-   local name = rfun:lower()
+   local name = opts.cmdname or rfun:lower()
    arg_types = arg_types or ""
    local format_args, check = gen_arg_funs(name, arg_types)
    local bulk_send = opts.bulk_send or arg_types == "T"
@@ -871,7 +871,6 @@ cmd("ZUNIONSTORE", "kiK")
 
 
 -- Commands operating on hashes
--- TODO:
 
 ---R: Set the hash field to the specified value.
 function Sidereal:hset(key, field, value) end
@@ -957,7 +956,8 @@ cmd("CONFIG", "kv",
 )
 
 
--- Pub/Sub
+-- Publish/Subscribe
+-- See the official doc at http://code.google.com/p/redis/wiki/PublishSubscribe.
 
 ---R: Publish message to a channel
 function Sidereal:publish(channel, message) end
@@ -965,15 +965,15 @@ cmd("PUBLISH", "kv", { noreply=true })
 
 ---R: Subscribe to a channel
 function Sidereal:suscribe(channel) end
-cmd("SUBSCRIBE", "ki", { noreply=true })
+cmd("SUBSCRIBE", "K", { noreply=true })
 
----R: Unsubscribe from a channel
+---R: Unsubscribe from listed channel(s)
 function Sidereal:unsubscribe(channel) end
-cmd("UNSUBSCRIBE", "ki", { noreply=true })
+cmd("UNSUBSCRIBE", "K", { noreply=true })
 
----R: Unsubscribe from all channels
-function Sidereal:unsubscribe_all() end
-cmd("UNSUBSCRIBE", nil, { noreply=true })
+---R: Unsubscribe from all channel
+function Sidereal:unsubscribeall(channel) end
+cmd("UNSUBSCRIBE", nil, { noreply=true, cmdname="unsubscribeall" })
 
 ---R: Subscribe to a pattern
 function Sidereal:psuscribe(pattern) end
@@ -981,28 +981,19 @@ cmd("PSUBSCRIBE", "p", { noreply=true })
 
 ---R: Unsubscribe from a pattern
 function Sidereal:punsubscribe(pattern) end
-cmd("PUNSUBSCRIBE", "k",
-    { noreply=true })
+cmd("PUNSUBSCRIBE", "p", { noreply=true })
 
 ---R: Unsubscribe from all patterns
 function Sidereal:unsubscribe_all() end
-cmd("PUNSUBSCRIBE", nil, { noreply=true })
+cmd("PUNSUBSCRIBE", nil, { noreply=true, cmdname="punsubscribeall"  })
 
---[[
-   R: Listen for subscriptions
-   Response is a multibulk value
-	--type
-	--channel
-	--message
-   From one of these possible types
-	closed
-	subscribe
-	unsubscribe
-	message
-	psubscribe
-	punsubscribe
-	pmessage
-]]--
+---R: Listen for subscription broadcasts.
+-- Returns a 3-tuple of { operation, channel_id, message }, such as
+-- {"subscribe", "channel_name", 3} (3 being the number of current subscriptions).
+-- Operations include "subscribe", "unsubscribe", "psubscribe", "punsubscribe",
+-- "message", "pmessage".
+-- Messages recieved by listening to patterns come as a 4-tuple of
+-- {operation, pattern, actual channel name, message}.
 function Sidereal:listen()
 	local ok, rest = self:get_response()
 	return ok, rest

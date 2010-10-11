@@ -1273,58 +1273,70 @@ function test_ZSET_basic_ZADD_and_score_update()
    cmp(aux2, {"y", "x", "z"})
 end
 
-
 function test_ZCARD_basics()
    z_init()
    assert_equal(3, R:zcard("ztmp"))
 end
 
-
-
 function test_PUBSUB_basic_subscription()
-	R:subscribe("channel_id")
-	
-	local ok, res = R:listen()
-	assert_false(ok == false or res == "closed")
-	
-	assert_equal("subscribe", res[1])
-	assert_equal("channel_id", res[2])
-	assert_equal(1, res[3])
-	
-	R:unsubscribe("channel_id")
-	
-	local ok, res = R:listen()
-	assert_false(ok == false or res == "closed")
-	
-	assert_equal("subscribe", res[1])
-	assert_equal("channel_id", res[2])
-	assert_equal(0, res[3])
+   R:subscribe("chan1", "chan2", "chan3")
+   
+   for id,name in ipairs{"chan1", "chan2", "chan3"} do
+      local ok, res = R:listen()
+      assert_true(ok, "subscription failed")
+      cmp(res, { "subscribe", name, id})
+   end
+
+   R:unsubscribe("chan3")
+   local ok, res = R:listen()
+   cmp(res, {"unsubscribe", "chan3", 2}, "banana")
+
+   R:unsubscribeall()
+   local ok, res = R:listen()
+   cmp(res, {"unsubscribe", "chan1", 1})
+   ok, res = R:listen()
+   cmp(res, {"unsubscribe", "chan2", 0})
 end
 
 
 function test_PUBSUB_patterned_subscription()
-	R:psubscribe("channel_*")
-	
-	local ok, res = R:listen()
-	
-	assert_false(ok == false or res == "closed")
-	
-	assert_equal("psubscribe", res[1])
-	assert_equal("channel_*", res[2])
-	assert_equal(1, res[3])
-	
-	R:punsubscribe("channel_id")
-	
-	local ok, res = R:listen()
-	assert_false(ok == false or res == "closed")
-
-	assert_equal("punsubscribe", res[1])
-	assert_equal("channel_*", res[2])
-	assert_equal(0, res[3])
+   R:psubscribe("channel_*")
+   local ok, res = R:listen()
+   assert_true(ok)
+   cmp(res, {"psubscribe", "channel_*", 1})
+   
+   R:punsubscribe("channel_id")
+   ok, res = R:listen()
+   assert_true(ok)
+   cmp(res, {"punsubscribe", "channel_id", 1})
 end
 
-function test_PUBSUB_basic_publish()
-  R:publish("channel_id", "message")
+function test_PUBSUB_receive_publish()
+   local R2 = assert(sidereal.connect("localhost", 6379, pass))
+   R2:subscribe("chan")
+   local ok, res = R2:listen()
+   assert_true(ok)
+   cmp(res, {"subscribe", "chan", 1})
+
+   R:publish("chan", "broadcast")
+
+   ok, res = R2:listen()
+   assert_true(ok)
+   cmp(res, {"message", "chan", "broadcast"})
+end
+
+function test_PUBSUB_receive_publish_pattern()
+   local R2 = assert(sidereal.connect("localhost", 6379, pass))
+   R2:psubscribe("chan*")
+   local ok, res = R2:listen()
+   assert_true(ok)
+   cmp(res, {"psubscribe", "chan*", 1})
+
+   R:publish("chanting", "om mani padme hum")
+
+   ok, res = R2:listen()
+   assert_true(ok)
+   cmp(res, {"pmessage", "chan*", "chanting", "om mani padme hum"})
 end
 
 function test_ZCARD_non_existing_key()
