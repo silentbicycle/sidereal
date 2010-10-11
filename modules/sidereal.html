@@ -72,6 +72,11 @@
 <table class="function_list">
 
 	<tr>
+	<td class="name" nowrap><a href="#Sidereal:append">Sidereal:append</a>&nbsp;(key, val)</td>
+	<td class="summary">R: Append a value to a key, returning the length.</td>
+	</tr>
+
+	<tr>
 	<td class="name" nowrap><a href="#Sidereal:auth">Sidereal:auth</a>&nbsp;(key)</td>
 	<td class="summary">R: Simple password authentication if enabled </td>
 	</tr>
@@ -84,6 +89,21 @@
 	<tr>
 	<td class="name" nowrap><a href="#Sidereal:bgsave">Sidereal:bgsave</a>&nbsp;()</td>
 	<td class="summary">R: Asynchronously save the DB on disk </td>
+	</tr>
+
+	<tr>
+	<td class="name" nowrap><a href="#Sidereal:blpop">Sidereal:blpop</a>&nbsp;(...)</td>
+	<td class="summary">R: Blocking LPOP from any of the lists given, with timeout.</td>
+	</tr>
+
+	<tr>
+	<td class="name" nowrap><a href="#Sidereal:brpop">Sidereal:brpop</a>&nbsp;(...)</td>
+	<td class="summary">R: Blocking RPOP from any of the lists given, with timeout.</td>
+	</tr>
+
+	<tr>
+	<td class="name" nowrap><a href="#Sidereal:config">Sidereal:config</a>&nbsp;(action, ...)</td>
+	<td class="summary">R: Get/Set config options.</td>
 	</tr>
 
 	<tr>
@@ -114,6 +134,16 @@
 	<tr>
 	<td class="name" nowrap><a href="#Sidereal:del">Sidereal:del</a>&nbsp;(key_list)</td>
 	<td class="summary">R: Delete a key </td>
+	</tr>
+
+	<tr>
+	<td class="name" nowrap><a href="#Sidereal:discard">Sidereal:discard</a>&nbsp;()</td>
+	<td class="summary">R: Abort the current transaction </td>
+	</tr>
+
+	<tr>
+	<td class="name" nowrap><a href="#Sidereal:exec">Sidereal:exec</a>&nbsp;()</td>
+	<td class="summary">R: Complete the current transaction </td>
 	</tr>
 
 	<tr>
@@ -157,6 +187,61 @@
 	</tr>
 
 	<tr>
+	<td class="name" nowrap><a href="#Sidereal:hdel">Sidereal:hdel</a>&nbsp;(key, field)</td>
+	<td class="summary">R: Delete a hash's field.</td>
+	</tr>
+
+	<tr>
+	<td class="name" nowrap><a href="#Sidereal:hexists">Sidereal:hexists</a>&nbsp;(key, field)</td>
+	<td class="summary">R: Check if a hash has a field.</td>
+	</tr>
+
+	<tr>
+	<td class="name" nowrap><a href="#Sidereal:hget">Sidereal:hget</a>&nbsp;(key, field)</td>
+	<td class="summary">R: Get a hash's field.</td>
+	</tr>
+
+	<tr>
+	<td class="name" nowrap><a href="#Sidereal:hgetall">Sidereal:hgetall</a>&nbsp;(key)</td>
+	<td class="summary">R: Get all of a hash's fields.</td>
+	</tr>
+
+	<tr>
+	<td class="name" nowrap><a href="#Sidereal:hincrby">Sidereal:hincrby</a>&nbsp;(key, field, int)</td>
+	<td class="summary">R: Increment the integer value of the hash at key on field with int.</td>
+	</tr>
+
+	<tr>
+	<td class="name" nowrap><a href="#Sidereal:hkeys">Sidereal:hkeys</a>&nbsp;(key)</td>
+	<td class="summary">R: Return a hash's keys.</td>
+	</tr>
+
+	<tr>
+	<td class="name" nowrap><a href="#Sidereal:hlen">Sidereal:hlen</a>&nbsp;(key)</td>
+	<td class="summary">R: Return the number of values in a hash.</td>
+	</tr>
+
+	<tr>
+	<td class="name" nowrap><a href="#Sidereal:hmget">Sidereal:hmget</a>&nbsp;(key, ...)</td>
+	<td class="summary">R: Atomically get the values for multiple fields in a hash.</td>
+	</tr>
+
+	<tr>
+	<td class="name" nowrap><a href="#Sidereal:hmset">Sidereal:hmset</a>&nbsp;(hashkey, table)</td>
+	<td class="summary">R: Atomically set the values for multiple fields in a hash.</td>
+	</tr>
+
+	<tr>
+	<td class="name" nowrap><a href="#Sidereal:hset">Sidereal:hset</a>&nbsp;(key, field, value)</td>
+	<td class="summary">R: Set the hash field to the specified value.</td>
+	</tr>
+
+	<tr>
+	<td class="name" nowrap><a href="#Sidereal:hvals">Sidereal:hvals</a>&nbsp;(key)</td>
+	<td class="summary">R: Return a hash's vals.</td>
+	</tr>
+
+	<tr>
 	<td class="name" nowrap><a href="#Sidereal:incr">Sidereal:incr</a>&nbsp;(key)</td>
 	<td class="summary">R: Increment the integer value of key </td>
 	</tr>
@@ -184,6 +269,11 @@
 	<tr>
 	<td class="name" nowrap><a href="#Sidereal:lindex">Sidereal:lindex</a>&nbsp;(key, integer)</td>
 	<td class="summary">R: Return the element at index position from the List at key </td>
+	</tr>
+
+	<tr>
+	<td class="name" nowrap><a href="#Sidereal:listen">Sidereal:listen</a>&nbsp;()</td>
+	<td class="summary">R: Listen for subscription broadcasts.</td>
 	</tr>
 
 	<tr>
@@ -244,6 +334,11 @@
 	<tr>
 	<td class="name" nowrap><a href="#Sidereal:msetnx">Sidereal:msetnx</a>&nbsp;(table)</td>
 	<td class="summary">R: Set a multiple keys to multiple values in a single atomic operation if none of the keys already exist </td>
+	</tr>
+
+	<tr>
+	<td class="name" nowrap><a href="#Sidereal:multi">Sidereal:multi</a>&nbsp;()</td>
+	<td class="summary">R: Begin an atomic transaction of multiple commands </td>
 	</tr>
 
 	<tr>
@@ -377,6 +472,11 @@
 	</tr>
 
 	<tr>
+	<td class="name" nowrap><a href="#Sidereal:setex">Sidereal:setex</a>&nbsp;(key, value)</td>
+	<td class="summary">R: Atomically set a key to a string value and expiration time.</td>
+	</tr>
+
+	<tr>
 	<td class="name" nowrap><a href="#Sidereal:setnx">Sidereal:setnx</a>&nbsp;(key, value)</td>
 	<td class="summary">R: Set a key to a string value if the key does not exist </td>
 	</tr>
@@ -437,6 +537,11 @@
 	</tr>
 
 	<tr>
+	<td class="name" nowrap><a href="#Sidereal:substr">Sidereal:substr</a>&nbsp;(key, from, to)</td>
+	<td class="summary">R: Return a substring of a larger string </td>
+	</tr>
+
+	<tr>
 	<td class="name" nowrap><a href="#Sidereal:sunion">Sidereal:sunion</a>&nbsp;(key_list)</td>
 	<td class="summary">R: Return the union between the Sets stored at key1, key2, ..., keyN </td>
 	</tr>
@@ -468,7 +573,7 @@
 
 	<tr>
 	<td class="name" nowrap><a href="#Sidereal:unsubscribe">Sidereal:unsubscribe</a>&nbsp;(channel)</td>
-	<td class="summary">R: Unsubscribe from a channel </td>
+	<td class="summary">R: Unsubscribe from listed channel(s) </td>
 	</tr>
 
 	<tr>
@@ -477,8 +582,18 @@
 	</tr>
 
 	<tr>
-	<td class="name" nowrap><a href="#Sidereal:unsubscribe_all">Sidereal:unsubscribe_all</a>&nbsp;()</td>
-	<td class="summary">R: Unsubscribe from all patterns </td>
+	<td class="name" nowrap><a href="#Sidereal:unsubscribeall">Sidereal:unsubscribeall</a>&nbsp;(channel)</td>
+	<td class="summary">R: Unsubscribe from all channel </td>
+	</tr>
+
+	<tr>
+	<td class="name" nowrap><a href="#Sidereal:unwatch">Sidereal:unwatch</a>&nbsp;()</td>
+	<td class="summary">R: Clear the set of WATCHed keys </td>
+	</tr>
+
+	<tr>
+	<td class="name" nowrap><a href="#Sidereal:watch">Sidereal:watch</a>&nbsp;(...)</td>
+	<td class="summary">R: Set key(s) whose modification should abort the current transaction </td>
 	</tr>
 
 	<tr>
@@ -492,8 +607,18 @@
 	</tr>
 
 	<tr>
+	<td class="name" nowrap><a href="#Sidereal:zcount">Sidereal:zcount</a>&nbsp;(key, from, to)</td>
+	<td class="summary">R: Return count of elements within the score range.</td>
+	</tr>
+
+	<tr>
 	<td class="name" nowrap><a href="#Sidereal:zincrby">Sidereal:zincrby</a>&nbsp;(key, integer, member)</td>
 	<td class="summary">R: If the member already exists increment its score by _increment_, otherwise add the member setting _increment_ as score </td>
+	</tr>
+
+	<tr>
+	<td class="name" nowrap><a href="#Sidereal:zinterstore">Sidereal:zinterstore</a>&nbsp;(dstkey, keycount, ...)</td>
+	<td class="summary">R: Store intersection of zsets under keys k1..kN with optional weights w1..wN at dskey.</td>
 	</tr>
 
 	<tr>
@@ -507,8 +632,18 @@
 	</tr>
 
 	<tr>
+	<td class="name" nowrap><a href="#Sidereal:zrank">Sidereal:zrank</a>&nbsp;(key, member)</td>
+	<td class="summary">R: Return rank of member in a ZSET (zero-based).</td>
+	</tr>
+
+	<tr>
 	<td class="name" nowrap><a href="#Sidereal:zrem">Sidereal:zrem</a>&nbsp;(key, member)</td>
 	<td class="summary">R: Remove the specified member from the Sorted Set value at key </td>
+	</tr>
+
+	<tr>
+	<td class="name" nowrap><a href="#Sidereal:zremrangebyrank">Sidereal:zremrangebyrank</a>&nbsp;(key, from, to)</td>
+	<td class="summary">R: Remove all elements in the sorted set at key with rank between from and to.</td>
 	</tr>
 
 	<tr>
@@ -522,8 +657,18 @@
 	</tr>
 
 	<tr>
+	<td class="name" nowrap><a href="#Sidereal:zrevrank">Sidereal:zrevrank</a>&nbsp;(key, member)</td>
+	<td class="summary">R: Return rank of member in a ZSET (zero-based), scored highest to lowest.</td>
+	</tr>
+
+	<tr>
 	<td class="name" nowrap><a href="#Sidereal:zscore">Sidereal:zscore</a>&nbsp;(key, value)</td>
 	<td class="summary">R: Return the score associated with the specified element of the sorted set at key </td>
+	</tr>
+
+	<tr>
+	<td class="name" nowrap><a href="#Sidereal:zunionstore">Sidereal:zunionstore</a>&nbsp;(dstkey, keycount, ...)</td>
+	<td class="summary">R: Store union of zsets under keys k1..kN with optional weights w1..wN at dskey.</td>
 	</tr>
 
 	<tr>
@@ -545,6 +690,36 @@
 
 <h2><a name="functions"></a>Functions</h2>
 <dl class="function">
+
+
+
+<dt><a name="Sidereal:append"></a><strong>Sidereal:append</strong>&nbsp;(key, val)</dt>
+<dd>
+R: Append a value to a key, returning the length.
+
+
+<h3>Parameters</h3>
+<ul>
+	
+	<li>
+	  key: 
+	</li>
+	
+	<li>
+	  val: 
+	</li>
+	
+</ul>
+
+
+
+
+
+
+
+
+</dd>
+
 
 
 
@@ -600,6 +775,106 @@ R: Asynchronously save the DB on disk
 
 
 
+
+
+
+</dd>
+
+
+
+
+<dt><a name="Sidereal:blpop"></a><strong>Sidereal:blpop</strong>&nbsp;(...)</dt>
+<dd>
+R: Blocking LPOP from any of the lists given, with timeout.
+
+
+<h3>Parameters</h3>
+<ul>
+	
+	<li>
+	  ...: 
+	</li>
+	
+</ul>
+
+
+
+
+
+
+<h3>Return value:</h3>
+Returns (listname, val) or (false, "timeout").
+
+
+
+</dd>
+
+
+
+
+<dt><a name="Sidereal:brpop"></a><strong>Sidereal:brpop</strong>&nbsp;(...)</dt>
+<dd>
+R: Blocking RPOP from any of the lists given, with timeout.
+
+
+<h3>Parameters</h3>
+<ul>
+	
+	<li>
+	  ...: 
+	</li>
+	
+</ul>
+
+
+
+
+
+
+<h3>Return value:</h3>
+Returns (listname, val) or (false, "timeout").
+
+
+
+</dd>
+
+
+
+
+<dt><a name="Sidereal:config"></a><strong>Sidereal:config</strong>&nbsp;(action, ...)</dt>
+<dd>
+R: Get/Set config options.
+
+
+<h3>Parameters</h3>
+<ul>
+	
+	<li>
+	  action: 
+	</li>
+	
+	<li>
+	  ...: 
+	</li>
+	
+</ul>
+
+
+
+
+<h3>Usage</h3>
+<ul>
+	
+	<li>R:config("get", "pattern")
+	
+	<li>R:config("set", "property", "value")
+	
+</ul>
+
+
+
+<h3>Return value:</h3>
+Get - table with all properties matching pattern
 
 
 
@@ -728,6 +1003,40 @@ R: Delete a key
 	</li>
 	
 </ul>
+
+
+
+
+
+
+
+
+</dd>
+
+
+
+
+<dt><a name="Sidereal:discard"></a><strong>Sidereal:discard</strong>&nbsp;()</dt>
+<dd>
+R: Abort the current transaction
+
+
+
+
+
+
+
+
+
+</dd>
+
+
+
+
+<dt><a name="Sidereal:exec"></a><strong>Sidereal:exec</strong>&nbsp;()</dt>
+<dd>
+R: Complete the current transaction
+
 
 
 
@@ -934,6 +1243,328 @@ R: Set a key to a string returning the old value of the key
 
 
 
+<dt><a name="Sidereal:hdel"></a><strong>Sidereal:hdel</strong>&nbsp;(key, field)</dt>
+<dd>
+R: Delete a hash's field.
+
+
+<h3>Parameters</h3>
+<ul>
+	
+	<li>
+	  key: 
+	</li>
+	
+	<li>
+	  field: 
+	</li>
+	
+</ul>
+
+
+
+
+
+
+
+
+</dd>
+
+
+
+
+<dt><a name="Sidereal:hexists"></a><strong>Sidereal:hexists</strong>&nbsp;(key, field)</dt>
+<dd>
+R: Check if a hash has a field.
+
+
+<h3>Parameters</h3>
+<ul>
+	
+	<li>
+	  key: 
+	</li>
+	
+	<li>
+	  field: 
+	</li>
+	
+</ul>
+
+
+
+
+
+
+
+
+</dd>
+
+
+
+
+<dt><a name="Sidereal:hget"></a><strong>Sidereal:hget</strong>&nbsp;(key, field)</dt>
+<dd>
+R: Get a hash's field.
+
+
+<h3>Parameters</h3>
+<ul>
+	
+	<li>
+	  key: 
+	</li>
+	
+	<li>
+	  field: 
+	</li>
+	
+</ul>
+
+
+
+
+
+
+
+
+</dd>
+
+
+
+
+<dt><a name="Sidereal:hgetall"></a><strong>Sidereal:hgetall</strong>&nbsp;(key)</dt>
+<dd>
+R: Get all of a hash's fields.
+
+
+<h3>Parameters</h3>
+<ul>
+	
+	<li>
+	  key: 
+	</li>
+	
+</ul>
+
+
+
+
+
+
+
+
+</dd>
+
+
+
+
+<dt><a name="Sidereal:hincrby"></a><strong>Sidereal:hincrby</strong>&nbsp;(key, field, int)</dt>
+<dd>
+R: Increment the integer value of the hash at key on field with int.
+
+
+<h3>Parameters</h3>
+<ul>
+	
+	<li>
+	  key: 
+	</li>
+	
+	<li>
+	  field: 
+	</li>
+	
+	<li>
+	  int: 
+	</li>
+	
+</ul>
+
+
+
+
+
+
+
+
+</dd>
+
+
+
+
+<dt><a name="Sidereal:hkeys"></a><strong>Sidereal:hkeys</strong>&nbsp;(key)</dt>
+<dd>
+R: Return a hash's keys.
+
+
+<h3>Parameters</h3>
+<ul>
+	
+	<li>
+	  key: 
+	</li>
+	
+</ul>
+
+
+
+
+
+
+
+
+</dd>
+
+
+
+
+<dt><a name="Sidereal:hlen"></a><strong>Sidereal:hlen</strong>&nbsp;(key)</dt>
+<dd>
+R: Return the number of values in a hash.
+
+
+<h3>Parameters</h3>
+<ul>
+	
+	<li>
+	  key: 
+	</li>
+	
+</ul>
+
+
+
+
+
+
+
+
+</dd>
+
+
+
+
+<dt><a name="Sidereal:hmget"></a><strong>Sidereal:hmget</strong>&nbsp;(key, ...)</dt>
+<dd>
+R: Atomically get the values for multiple fields in a hash. CURRENTLY BROKEN.
+
+
+<h3>Parameters</h3>
+<ul>
+	
+	<li>
+	  key: 
+	</li>
+	
+	<li>
+	  ...: 
+	</li>
+	
+</ul>
+
+
+
+
+
+
+
+
+</dd>
+
+
+
+
+<dt><a name="Sidereal:hmset"></a><strong>Sidereal:hmset</strong>&nbsp;(hashkey, table)</dt>
+<dd>
+R: Atomically set the values for multiple fields in a hash. CURRENTLY BROKEN.
+
+
+<h3>Parameters</h3>
+<ul>
+	
+	<li>
+	  hashkey: 
+	</li>
+	
+	<li>
+	  table: 
+	</li>
+	
+</ul>
+
+
+
+
+
+
+
+
+</dd>
+
+
+
+
+<dt><a name="Sidereal:hset"></a><strong>Sidereal:hset</strong>&nbsp;(key, field, value)</dt>
+<dd>
+R: Set the hash field to the specified value.
+
+
+<h3>Parameters</h3>
+<ul>
+	
+	<li>
+	  key: 
+	</li>
+	
+	<li>
+	  field: 
+	</li>
+	
+	<li>
+	  value: 
+	</li>
+	
+</ul>
+
+
+
+
+
+
+
+
+</dd>
+
+
+
+
+<dt><a name="Sidereal:hvals"></a><strong>Sidereal:hvals</strong>&nbsp;(key)</dt>
+<dd>
+R: Return a hash's vals.
+
+
+<h3>Parameters</h3>
+<ul>
+	
+	<li>
+	  key: 
+	</li>
+	
+</ul>
+
+
+
+
+
+
+
+
+</dd>
+
+
+
+
 <dt><a name="Sidereal:incr"></a><strong>Sidereal:incr</strong>&nbsp;(key)</dt>
 <dd>
 R: Increment the integer value of key
@@ -1067,6 +1698,23 @@ R: Return the element at index position from the List at key
 	</li>
 	
 </ul>
+
+
+
+
+
+
+
+
+</dd>
+
+
+
+
+<dt><a name="Sidereal:listen"></a><strong>Sidereal:listen</strong>&nbsp;()</dt>
+<dd>
+R: Listen for subscription broadcasts. Returns a 3-tuple of { operation, channel_id, message }, such as {"subscribe", "channel_name", 3} (3 being the number of current subscriptions). Operations include "subscribe", "unsubscribe", "psubscribe", "punsubscribe", "message", and "pmessage". Messages recieved by listening to patterns come as a 4-tuple of {operation, pattern, actual channel name, message}.
+
 
 
 
@@ -1410,6 +2058,23 @@ R: Set a multiple keys to multiple values in a single atomic operation if none o
 	</li>
 	
 </ul>
+
+
+
+
+
+
+
+
+</dd>
+
+
+
+
+<dt><a name="Sidereal:multi"></a><strong>Sidereal:multi</strong>&nbsp;()</dt>
+<dd>
+R: Begin an atomic transaction of multiple commands
+
 
 
 
@@ -2098,6 +2763,36 @@ R: Set a key to a string value
 
 
 
+<dt><a name="Sidereal:setex"></a><strong>Sidereal:setex</strong>&nbsp;(key, value)</dt>
+<dd>
+R: Atomically set a key to a string value and expiration time.
+
+
+<h3>Parameters</h3>
+<ul>
+	
+	<li>
+	  key: 
+	</li>
+	
+	<li>
+	  value: 
+	</li>
+	
+</ul>
+
+
+
+
+
+
+
+
+</dd>
+
+
+
+
 <dt><a name="Sidereal:setnx"></a><strong>Sidereal:setnx</strong>&nbsp;(key, value)</dt>
 <dd>
 R: Set a key to a string value if the key does not exist
@@ -2436,6 +3131,40 @@ R: Remove the specified member from the Set value at key
 
 
 
+<dt><a name="Sidereal:substr"></a><strong>Sidereal:substr</strong>&nbsp;(key, from, to)</dt>
+<dd>
+R: Return a substring of a larger string
+
+
+<h3>Parameters</h3>
+<ul>
+	
+	<li>
+	  key: 
+	</li>
+	
+	<li>
+	  from: 
+	</li>
+	
+	<li>
+	  to: 
+	</li>
+	
+</ul>
+
+
+
+
+
+
+
+
+</dd>
+
+
+
+
 <dt><a name="Sidereal:sunion"></a><strong>Sidereal:sunion</strong>&nbsp;(key_list)</dt>
 <dd>
 R: Return the union between the Sets stored at key1, key2, ..., keyN
@@ -2589,7 +3318,7 @@ R: Return the type of the value stored at key
 
 <dt><a name="Sidereal:unsubscribe"></a><strong>Sidereal:unsubscribe</strong>&nbsp;(channel)</dt>
 <dd>
-R: Unsubscribe from a channel
+R: Unsubscribe from listed channel(s)
 
 
 <h3>Parameters</h3>
@@ -2630,10 +3359,62 @@ R: Unsubscribe from all patterns
 
 
 
-<dt><a name="Sidereal:unsubscribe_all"></a><strong>Sidereal:unsubscribe_all</strong>&nbsp;()</dt>
+<dt><a name="Sidereal:unsubscribeall"></a><strong>Sidereal:unsubscribeall</strong>&nbsp;(channel)</dt>
 <dd>
-R: Unsubscribe from all patterns
+R: Unsubscribe from all channel
 
+
+<h3>Parameters</h3>
+<ul>
+	
+	<li>
+	  channel: 
+	</li>
+	
+</ul>
+
+
+
+
+
+
+
+
+</dd>
+
+
+
+
+<dt><a name="Sidereal:unwatch"></a><strong>Sidereal:unwatch</strong>&nbsp;()</dt>
+<dd>
+R: Clear the set of WATCHed keys
+
+
+
+
+
+
+
+
+
+</dd>
+
+
+
+
+<dt><a name="Sidereal:watch"></a><strong>Sidereal:watch</strong>&nbsp;(...)</dt>
+<dd>
+R: Set key(s) whose modification should abort the current transaction
+
+
+<h3>Parameters</h3>
+<ul>
+	
+	<li>
+	  ...: 
+	</li>
+	
+</ul>
 
 
 
@@ -2707,6 +3488,40 @@ R: Return the cardinality (number of elements) of the sorted set at key
 
 
 
+<dt><a name="Sidereal:zcount"></a><strong>Sidereal:zcount</strong>&nbsp;(key, from, to)</dt>
+<dd>
+R: Return count of elements within the score range.
+
+
+<h3>Parameters</h3>
+<ul>
+	
+	<li>
+	  key: 
+	</li>
+	
+	<li>
+	  from: 
+	</li>
+	
+	<li>
+	  to: 
+	</li>
+	
+</ul>
+
+
+
+
+
+
+
+
+</dd>
+
+
+
+
 <dt><a name="Sidereal:zincrby"></a><strong>Sidereal:zincrby</strong>&nbsp;(key, integer, member)</dt>
 <dd>
 R: If the member already exists increment its score by _increment_, otherwise add the member setting _increment_ as score
@@ -2725,6 +3540,40 @@ R: If the member already exists increment its score by _increment_, otherwise ad
 	
 	<li>
 	  member: 
+	</li>
+	
+</ul>
+
+
+
+
+
+
+
+
+</dd>
+
+
+
+
+<dt><a name="Sidereal:zinterstore"></a><strong>Sidereal:zinterstore</strong>&nbsp;(dstkey, keycount, ...)</dt>
+<dd>
+R: Store intersection of zsets under keys k1..kN with optional weights w1..wN at dskey.
+
+
+<h3>Parameters</h3>
+<ul>
+	
+	<li>
+	  dstkey: 
+	</li>
+	
+	<li>
+	  keycount: 
+	</li>
+	
+	<li>
+	  ...: 
 	</li>
 	
 </ul>
@@ -2809,6 +3658,36 @@ R: Return all the elements with score >= min and score <= max (a range query) fr
 
 
 
+<dt><a name="Sidereal:zrank"></a><strong>Sidereal:zrank</strong>&nbsp;(key, member)</dt>
+<dd>
+R: Return rank of member in a ZSET (zero-based).
+
+
+<h3>Parameters</h3>
+<ul>
+	
+	<li>
+	  key: 
+	</li>
+	
+	<li>
+	  member: 
+	</li>
+	
+</ul>
+
+
+
+
+
+
+
+
+</dd>
+
+
+
+
 <dt><a name="Sidereal:zrem"></a><strong>Sidereal:zrem</strong>&nbsp;(key, member)</dt>
 <dd>
 R: Remove the specified member from the Sorted Set value at key
@@ -2823,6 +3702,40 @@ R: Remove the specified member from the Sorted Set value at key
 	
 	<li>
 	  member: 
+	</li>
+	
+</ul>
+
+
+
+
+
+
+
+
+</dd>
+
+
+
+
+<dt><a name="Sidereal:zremrangebyrank"></a><strong>Sidereal:zremrangebyrank</strong>&nbsp;(key, from, to)</dt>
+<dd>
+R: Remove all elements in the sorted set at key with rank between from and to.
+
+
+<h3>Parameters</h3>
+<ul>
+	
+	<li>
+	  key: 
+	</li>
+	
+	<li>
+	  from: 
+	</li>
+	
+	<li>
+	  to: 
 	</li>
 	
 </ul>
@@ -2907,6 +3820,36 @@ R: Return a range of elements from the sorted set at key, exactly like ZRANGE, b
 
 
 
+<dt><a name="Sidereal:zrevrank"></a><strong>Sidereal:zrevrank</strong>&nbsp;(key, member)</dt>
+<dd>
+R: Return rank of member in a ZSET (zero-based), scored highest to lowest.
+
+
+<h3>Parameters</h3>
+<ul>
+	
+	<li>
+	  key: 
+	</li>
+	
+	<li>
+	  member: 
+	</li>
+	
+</ul>
+
+
+
+
+
+
+
+
+</dd>
+
+
+
+
 <dt><a name="Sidereal:zscore"></a><strong>Sidereal:zscore</strong>&nbsp;(key, value)</dt>
 <dd>
 R: Return the score associated with the specified element of the sorted set at key
@@ -2921,6 +3864,40 @@ R: Return the score associated with the specified element of the sorted set at k
 	
 	<li>
 	  value: 
+	</li>
+	
+</ul>
+
+
+
+
+
+
+
+
+</dd>
+
+
+
+
+<dt><a name="Sidereal:zunionstore"></a><strong>Sidereal:zunionstore</strong>&nbsp;(dstkey, keycount, ...)</dt>
+<dd>
+R: Store union of zsets under keys k1..kN with optional weights w1..wN at dskey.
+
+
+<h3>Parameters</h3>
+<ul>
+	
+	<li>
+	  dstkey: 
+	</li>
+	
+	<li>
+	  keycount: 
+	</li>
+	
+	<li>
+	  ...: 
 	</li>
 	
 </ul>

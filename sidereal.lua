@@ -991,7 +991,7 @@ cmd("PUNSUBSCRIBE", nil, { noreply=true, cmdname="punsubscribeall"  })
 -- Returns a 3-tuple of { operation, channel_id, message }, such as
 -- {"subscribe", "channel_name", 3} (3 being the number of current subscriptions).
 -- Operations include "subscribe", "unsubscribe", "psubscribe", "punsubscribe",
--- "message", "pmessage".
+-- "message", and "pmessage".
 -- Messages recieved by listening to patterns come as a 4-tuple of
 -- {operation, pattern, actual channel name, message}.
 function Sidereal:listen()
