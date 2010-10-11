@@ -17,7 +17,13 @@ If a pass hook function is provided, sidereal will call it to defer
 control whenever reading/writing on a socket would block. (Typically,
 this would yield to a coroutine scheduler.)
 
-The proxy table provides syntactic sugar for basic usage:
+The commands available are closely based on the official [command reference][].
+
+Normal Redis commands return (false, error) on error. If the connection
+is closed, Sidereal will make one attempt to reconnect. If that fails,
+it will return (false, "closed").
+
+The proxy interface provides syntactic sugar for basic usage:
 
     c = sidereal.connect()
     local pr = c:proxy()
@@ -28,13 +34,11 @@ The proxy table provides syntactic sugar for basic usage:
     pr.my_set = { a=true, b=true, c=true, d=true, e=true }
     pr.my_zset = { a=1, b=2, c=3, d=4, e=5 }
 
-Normal Redis commands return (false, error) on error. If the connection
-is closed, Sidereal will make one attempt to reconnect. If that fails,
-it will return (false, "closed"). Redis commands run via a proxy() table
-use Lua's error() call, since it isn't possible to do normal error
-checking on e.g. "var = proxy.key".
+Redis commands run via a proxy() table use Lua's error() call, since it
+isn't possible to do normal error checking on e.g. "var = proxy.key".
 
 For further usage examples, see the API documentation and test suite
-(which includes a complete translation of the official TCL test suite).
+(which includes a translation of most of the official TCL test suite).
 
 [redis]: http://code.google.com/p/redis/
+[command reference]: http://code.google.com/p/redis/wiki/CommandReference
