@@ -63,7 +63,7 @@
 <h1>File <code>sidereal.lua</code></h1>
 
 
-<p>To connect to a Redis server, use: <code>c = sidereal.connect(host, port[, pass_hook])</code>  <p>If a pass hook function is provided, sidereal will call it to defer control whenever reading/writing on a socket would block.</p>  <p>Normal Redis commands return (false, error) on error. Mainly, watch for (false, "closed") if the connection breaks. Redis commands run via proxy() use Lua's error() call, since it isn't possible to do normal error checking on "var = proxy.key".</p>  <p>All standard Redis commands are prefaced with "R:" below.</p>  <p>For further usage examples, see the test suite.</p> </p>
+<p>To connect to a Redis server, use: <code>c = sidereal.connect(host, port[, pass_hook])</code>  <p>If a pass hook function is provided, sidereal will call it to defer control whenever reading/writing on a socket would block.</p>  <p>Normal Redis commands return (nil, error) on error. Mainly, watch for (nil, "closed") if the connection breaks. Redis commands run via proxy() use Lua's error() call, since it isn't possible to do normal error checking on "var = proxy.key".</p>  <p>All standard Redis commands are prefaced with "R:" below.</p>  <p>For further usage examples, see the test suite.</p> </p>
 
 
 
@@ -806,7 +806,7 @@ R: Blocking LPOP from any of the lists given, with timeout.
 
 
 <h3>Return value:</h3>
-Returns (listname, val) or (false, "timeout").
+Returns (listname, val) or (nil, "timeout").
 
 
 
@@ -835,7 +835,7 @@ R: Blocking RPOP from any of the lists given, with timeout.
 
 
 <h3>Return value:</h3>
-Returns (listname, val) or (false, "timeout").
+Returns (listname, val) or (nil, "timeout").
 
 
 

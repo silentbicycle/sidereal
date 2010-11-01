@@ -20,9 +20,9 @@ this would yield to a coroutine scheduler.)
 
 The commands available are closely based on the official [command reference][].
 
-Normal Redis commands return (false, error) on error. If the connection
+Normal Redis commands return (nil, error) on error. If the connection
 is closed, Sidereal will make one attempt to reconnect. If that fails,
-it will return (false, "closed").
+it will return (nil, "closed").
 
 The proxy interface provides syntactic sugar for basic usage:
 

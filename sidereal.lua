@@ -19,8 +19,8 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 -- <p>If a pass hook function is provided, sidereal will call it to
 -- defer control whenever reading/writing on a socket would block.</p>
 --
--- <p>Normal Redis commands return (false, error) on error. Mainly,
--- watch for (false, "closed") if the connection breaks. Redis commands
+-- <p>Normal Redis commands return (nil, error) on error. Mainly,
+-- watch for (nil, "closed") if the connection breaks. Redis commands
 -- run via proxy() use Lua's error() call, since it isn't possible
 -- to do normal error checking on "var = proxy.key".</p>
 --
@@ -104,7 +104,7 @@ function connect(host, port, pass_hook)
    setmetatable(conn, ConnMT )
 
    local ok, s = conn:connect()
-   if not ok then return false, s end
+   if not ok then return nil, s end
    conn._socket = s
    return conn
 end
@@ -113,7 +113,7 @@ end
 ---(Re)Connect to the specified Redis server.
 function Sidereal:connect()
    local s, err = socket.connect(self.host, self.port)
-   if not s then return false, err end
+   if not s then return nil, err end
    self._socket = s
    if pass_hook then s:settimeout(0) end    --async operation
    s:setoption("tcp-nodelay", true) --disable nagle's algorithm
@@ -143,15 +143,15 @@ function Sidereal:send(cmd, retry)
          if cmd:match("QUIT") then return true
          elseif self._pipeline or retry then
             trace(" -- Reconnect failed (or pipelining)")
-            return false, "closed"
+            return nil, "closed"
          else
             local ok, err2 = self:connect()
             if ok then
                return self:send(cmd, true)
-            else return false, err2 or "unknown error(2)"
+            else return nil, err2 or "unknown error(2)"
             end
          end
-      elseif err ~= "timeout" then return false, err or "unknown error"
+      elseif err ~= "timeout" then return nil, err or "unknown error"
       else
          self:pass()
       end
@@ -168,23 +168,23 @@ function Sidereal:send_receive(cmd, retry)
       return true, PIPELINED
    else
       local ok, err, rest = self:send(cmd, retry)
-      if not ok then return false, err end
+      if not ok then return nil, err end
       ok, rest = self:get_response()
       if ok then
          return ok, rest
       elseif rest == "closed" then
          if cmd:match("QUIT") then return true
-         elseif retry then return false, "closed"
+         elseif retry then return nil, "closed"
          else
             ok, err = self:connect()
             if ok then
                return self:send_receive(cmd, true)
             else
-               return false, err
+               return nil, err
             end
          end
       else
-         return false, rest
+         return nil, rest
       end
    end
 end
@@ -226,7 +226,7 @@ end
 function Sidereal:get_response()
    local ok, line = self:receive("*l")
    trace("RECV: ", ok, line)
-   if not ok then return false, line end
+   if not ok then return nil, line end
 
    return self:handle_response(line)
 end
@@ -246,7 +246,7 @@ function Sidereal:receive(len)
       elseif err == "timeout" then
          self:pass()
       else
-         return false, err
+         return nil, err
       end
    end
 end
@@ -258,7 +258,7 @@ function Sidereal:bulk_receive(length)
 
    while rem > 0 do
       local ok, read = self:receive(rem)
-      if not ok then return false, read end
+      if not ok then return nil, read end
       buf[#buf+1] = read; rem = rem - read:len()
    end
    local res = concat(buf)
@@ -276,7 +276,7 @@ function Sidereal:bulk_multi_receive(count)
    -- Read and rs all responses, so pipelining works.
    for i=1,ct do
       local ok, read = self:receive("*l")
-      if not ok then return false, read end
+      if not ok then return nil, read end
       trace("   READLINE:", ok, read)
 	  if read:sub(1, 1) == ":" then --integer
 		rs[i]  = tonumber(read:sub(2))
@@ -289,7 +289,7 @@ function Sidereal:bulk_multi_receive(count)
 	        ok, read = self:bulk_receive(length + 2)
 	    end
 	    trace(" -- BULK_READ: ", ok, read)
-	    if not ok then return false, read end
+	    if not ok then return nil, read end
 	    rs[i] = read
 	  end
    end
@@ -314,7 +314,7 @@ function Sidereal:handle_response(line)
    if r == "+" then             -- +ok
       return true, line:sub(2)
    elseif r == "-" then         -- -error
-      return false, line:match("-ERR (.*)")
+      return nil, line:match("-ERR (.*)")
    elseif r == ":" then         -- :integer (incl. 0 & 1 for false,true)
       local num = tonumber(line:sub(2))
       return true, num
@@ -333,7 +333,7 @@ function Sidereal:handle_response(line)
       local count = assert(tonumber(line:sub(2)), "Bad count")
       return self:bulk_multi_receive(count)
    else
-      return false, "Bad response"
+      return nil, "Bad response"
    end
 end
 
@@ -455,7 +455,7 @@ local function cmd(rfun, arg_types, opts)
             for _,arg in ipairs(arglist) do b[#b+1] = arg end
             send = concat(b)
          else
-            if not arglist then return false, err end
+            if not arglist then return nil, err end
 
             if self.DEBUG then check(arglist) end
             local b = { rfun, " ", concat(arglist, " ")}
@@ -474,7 +474,7 @@ local function cmd(rfun, arg_types, opts)
             if ph then return ph(raw_args, res, self) end
             return res
          else
-            return false, res
+            return nil, res
          end
       end
 end
@@ -694,21 +694,21 @@ function Sidereal:rpop(key) end
 cmd("RPOP", "k")
 
 ---R: Blocking LPOP from any of the lists given, with timeout.
--- @return Returns (listname, val) or (false, "timeout").
+-- @return Returns (listname, val) or (nil, "timeout").
 function Sidereal:blpop(...) end
 cmd("BLPOP", "Ki",
     { post_hook =
       function(raw_args, res)
-         if #res == 0 then return false, "timeout" else return res[1], res[2] end
+         if #res == 0 then return nil, "timeout" else return res[1], res[2] end
       end })
 
 ---R: Blocking RPOP from any of the lists given, with timeout.
--- @return Returns (listname, val) or (false, "timeout").
+-- @return Returns (listname, val) or (nil, "timeout").
 function Sidereal:brpop(...) end
 cmd("BRPOP", "Ki",
     { post_hook =
       function(raw_args, res)
-         if #res == 0 then return false, "timeout" else return res[1], res[2] end
+         if #res == 0 then return nil, "timeout" else return res[1], res[2] end
       end })
 
 ---R: Return and atomically remove the last element of the source List
@@ -1085,7 +1085,7 @@ function Sidereal:sort(key, options)
    local store = t.store
    for k in pairs(t) do
       if not known_sort_opts[k] then
-         return false, "Bad sort option: " .. tostring(k)
+         return nil, "Bad sort option: " .. tostring(k)
       end
    end
 
@@ -1103,7 +1103,7 @@ function Sidereal:sort(key, options)
    trace("-- SORTING:", concat(b, " "))
 
    local ok, res = self:send_receive(concat(b, " "))
-   if ok then return res else return false, res end
+   if ok then return res else return nil, res end
 end
 
 
@@ -1124,7 +1124,7 @@ function Sidereal:proxy()
       if val then return val
       elseif err and string.match(err, "wrong kind of value") then
          local t, err2 = self:type(key)
-         if not t then return false, err2 end
+         if not t then return nil, err2 end
          if t == "none" then
             return NULL
          elseif t == "list" then
@@ -1135,13 +1135,13 @@ function Sidereal:proxy()
             return self:zrange(key, 0, -1)
          end
       end
-      return false, err
+      return nil, err
    end
 
    local function set_list(key, list)
       for i,v in ipairs(list) do
          local ok, err = self:rpush(key, v)
-         if not ok then return false, err end
+         if not ok then return nil, err end
       end
       return true
    end
@@ -1149,7 +1149,7 @@ function Sidereal:proxy()
    local function set_set(key, set)
       for v in pairs(set) do
          local ok, err = self:sadd(key, v)
-         if not ok then return false, err end
+         if not ok then return nil, err end
       end
       return true
    end
@@ -1157,7 +1157,7 @@ function Sidereal:proxy()
    local function set_zset(key, zset)
       for v,wt in pairs(zset) do
          local ok, err = self:zadd(key, wt, v)
-         if not ok then return false, err end
+         if not ok then return nil, err end
       end
       return true
    end
@@ -1181,7 +1181,7 @@ function Sidereal:proxy()
       elseif t_type == "set" then return set_set(key, val)
       elseif t_type == "zset" then return set_zset(key, val)
       end
-      return false, "Bad table sent to proxy:__newindex"
+      return nil, "Bad table sent to proxy:__newindex"
    end
 
    local function newindex(_, key, val)
@@ -1193,7 +1193,7 @@ function Sidereal:proxy()
       elseif val_t == "nil" then
          ok, err = self:del(key)
       else
-         ok, err = false, "Bad Lua value type: " .. val_t
+         ok, err = nil, "Bad Lua value type: " .. val_t
       end
       -- Use Lua's error() because you can't wrap (x=y) in asserts, etc.
       if not ok then error(err) end

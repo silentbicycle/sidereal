@@ -2242,7 +2242,7 @@ function test_BLPOP()
    assert_equal("mylist", list)
    assert_equal("y", val)
    list, val = R:blpop("nolist", 1)
-   assert_equal(false, list)
+   assert_nil(list)
    assert_equal("timeout", val)
 end
 
@@ -2256,7 +2256,7 @@ function test_BRPOP()
    assert_equal("mylist", list)
    assert_equal("x", val)
    list, val = R:brpop("nolist", 1)
-   assert_equal(false, list)
+   assert_nil(list)
    assert_equal("timeout", val)
 end
 
