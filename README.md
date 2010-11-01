@@ -2,12 +2,12 @@ A [Redis][] library for Lua, with:
 
  * an optional non-blocking mode
  * pipelining
- * automatic reconnections (disabled when pipelining)
+ * automatic reconnections (*disabled when pipelining!*)
  * Lua-style lists and sets
  * a proxy table interface to the database
 
 As of Redis 2.0.2, all new commands are supported (except HMGET and HMSET,
-which are temporarily broken).
+which are temporarily broken due to a protocol change).
 
 To connect to a Redis server, use:
     c = sidereal.connect(host, port [, pass_hook])
@@ -20,9 +20,16 @@ this would yield to a coroutine scheduler.)
 
 The commands available are closely based on the official [command reference][].
 
-Normal Redis commands return (nil, error) on error. If the connection
-is closed, Sidereal will make one attempt to reconnect. If that fails,
-it will return (nil, "closed").
+Normal Redis commands return (nil, error) on error. If the connection is
+closed, Sidereal will make one attempt to reconnect (unless pipelining).
+If that fails, it will return (nil, "closed").
+
+When pipelining, be sure to check the result of R:send_pipeline(). Rather
+than trying to automagically reconnect and replay a bunch of arbitrary
+commands (some of which may have already run), Sidereal just reports the
+disconnection and leaves the commands queued. (They can be cleared with
+R:clear_pipeline().) Also, pipelines should generally be contained
+in a MULTI/EXEC transaction, so that the whole group is atomic.
 
 The proxy interface provides syntactic sugar for basic usage:
 

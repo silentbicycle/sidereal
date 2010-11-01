@@ -104,6 +104,11 @@
 	</tr>
 
 	<tr>
+	<td class="name" nowrap><a href="#Sidereal:clear_pipeline">Sidereal:clear_pipeline</a>&nbsp;()</td>
+	<td class="summary">Clear the current, unsent pipeline (if any).</td>
+	</tr>
+
+	<tr>
 	<td class="name" nowrap><a href="#Sidereal:config">Sidereal:config</a>&nbsp;(action, ...)</td>
 	<td class="summary">R: Get/Set config options.</td>
 	</tr>
@@ -179,8 +184,8 @@
 	</tr>
 
 	<tr>
-	<td class="name" nowrap><a href="#Sidereal:get_response">Sidereal:get_response</a>&nbsp;()</td>
-	<td class="summary">Read and parse one response, passing on timeout if non-blocking.</td>
+	<td class="name" nowrap><a href="#Sidereal:get_response">Sidereal:get_response</a>&nbsp;(ignore_ct)</td>
+	<td class="summary">Get the next result from a sent pipeline of commands.</td>
 	</tr>
 
 	<tr>
@@ -844,6 +849,23 @@ Returns (listname, val) or (nil, "timeout").
 
 
 
+<dt><a name="Sidereal:clear_pipeline"></a><strong>Sidereal:clear_pipeline</strong>&nbsp;()</dt>
+<dd>
+Clear the current, unsent pipeline (if any).
+
+
+
+
+
+
+
+
+
+</dd>
+
+
+
+
 <dt><a name="Sidereal:config"></a><strong>Sidereal:config</strong>&nbsp;(action, ...)</dt>
 <dd>
 R: Get/Set config options.
@@ -1199,10 +1221,19 @@ R: Return the string value of the key
 
 
 
-<dt><a name="Sidereal:get_response"></a><strong>Sidereal:get_response</strong>&nbsp;()</dt>
+<dt><a name="Sidereal:get_response"></a><strong>Sidereal:get_response</strong>&nbsp;(ignore_ct)</dt>
 <dd>
-Read and parse one response, passing on timeout if non-blocking.
+Get the next result from a sent pipeline of commands.
 
+
+<h3>Parameters</h3>
+<ul>
+	
+	<li>
+	  ignore_ct: Don't warn about pipeline counts (i.e., when pipelining manually).
+	</li>
+	
+</ul>
 
 
 
@@ -2143,7 +2174,7 @@ Begin a series of pipelined commands.
 
 
 <h3>Usage:</h3>
-Use self:send_pipeline() to send them all, and then call self:get_response() once per command. (Successful sends will return sidereal.PIPELINED.)<br> Also, note that (at least as of Redis 1.2.2), Redis will continue queueing pipelined commands until the send is complete, so pipelining a very large sequence of commands can make Redis run out of memory.
+Use self:send_pipeline() to send them all, and then call self:get_response() once per command. (Successful sends will return sidereal.PIPELINED.)<br> Generally, pipelines should be bookended by MULTI and EXEC.<br> Also, note that (at least as of Redis 1.2.2), Redis will continue queueing pipelined commands until the send is complete, so pipelining a very large sequence of commands can make Redis run out of memory.
 
 
 
@@ -2696,6 +2727,9 @@ Send a queue of pipelined commands.
 
 
 
+
+<h3>Usage:</h3>
+Note that if disconnected while sending a pipeline, Sidereal will NOT automatically reconnect. Instead, all of the enqueued commands remain in the pipeline. Be sure to check send_pipeline's result!
 
 
 

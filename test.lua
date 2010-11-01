@@ -364,15 +364,15 @@ end
 function test_pipelining_by_hand()
    R:send("SET k1 4\r\nxyzk\r\nGET k1\r\nPING\r\n")
    local ok, r1, r2, r3
-   ok, r1 = R:get_response()
+   ok, r1 = R:get_response(true)
    assert_true(ok)
    assert_match("OK", r1)
 
-   ok, r2 = R:get_response()
+   ok, r2 = R:get_response(true)
    assert_true(ok)
    assert_match("xyzk", r2)
 
-   ok, r3 = R:get_response()
+   ok, r3 = R:get_response(true)
    assert_true(ok)
    assert_match("PONG", r3)
 end
@@ -2068,18 +2068,18 @@ if do_slow then
       end
       
       for i=1,100000 do
-         local ok, res = R:get_response()
+         local ok, res = R:get_response(true)
          assert_true(ok, res)
          assert_equal("OK", res)
          
-         local ok2, val = R:get_response()
+         local ok2, val = R:get_response(true)
          assert_true(ok2, val)
          assert_match(fmt("0000%d0000", i), val)
       end
    end
 
 
-   function test_PIPELINING_stresser_also_a_regression_for_the_old_epoll_bugl()
+   function test_PIPELINING_stresser_also_a_regression_for_the_old_epoll_bug()
       local s = R._socket
       R:select(9)
 

@@ -159,17 +159,23 @@ function Sidereal:send(cmd, retry)
 end
 
 
+-- forward reference, anchoring _get_response(self) at this scope.
+-- The function itself is defined later.
+local _get_response
+
+
 ---Send a raw string and (if not pipelining) return the response.
 function Sidereal:send_receive(cmd, retry)
    if self._pipeline then
       trace("PIPELINED:", cmd)
       local p = self._pipeline
       p[#p+1] = cmd
+      self._pipeline_ct = self._pipeline_ct + 1
       return true, PIPELINED
    else
       local ok, err, rest = self:send(cmd, retry)
       if not ok then return nil, err end
-      ok, rest = self:get_response()
+      ok, rest = _get_response(self)
       if ok then
          return ok, rest
       elseif rest == "closed" then
@@ -198,6 +204,7 @@ end
 -- @usage Use self:send_pipeline() to send them all, and then call
 -- self:get_response() once per command. (Successful sends will return
 -- sidereal.PIPELINED.)<br>
+-- Generally, pipelines should be bookended by MULTI and EXEC.<br>
 -- Also, note that (at least as of Redis 1.2.2), Redis will continue
 -- queueing pipelined commands until the send is complete, so pipelining
 -- a very large sequence of commands can make Redis run out of memory.
@@ -206,15 +213,47 @@ end
 function Sidereal:pipeline()
    if self._pipeline then return nil, "Already pipelining" end
    self._pipeline = {}
+   self._pipeline_ct = self._pipeline_ct or 0
    return true
 end
 
 
+---Clear the current, unsent pipeline (if any).
+function Sidereal:clear_pipeline()
+   self._pipeline = nil
+   self._pipeline_ct = nil
+end
+
+
 ---Send a queue of pipelined commands.
+-- @usage Note that if disconnected while sending a pipeline,
+--   Sidereal will NOT automatically reconnect. Instead, all of the enqueued
+--   commands remain in the pipeline. Be sure to check send_pipeline's result!
 function Sidereal:send_pipeline()
    if not self._pipeline then return nil, "Not pipelining" end
-   self:send(concat(self._pipeline, "\r\n"))
-   self._pipeline = false
+   local ok, err = self:send(concat(self._pipeline, "\r\n"))
+   if ok then
+      self._pipeline = false
+   else
+      return ok, err
+   end
+end
+
+
+---Get the next result from a sent pipeline of commands.
+-- @param ignore_ct Don't warn about pipeline counts (i.e., when pipelining manually).
+function Sidereal:get_response(ignore_ct)
+   if not ignore_ct then
+      local ct = self._pipeline_ct
+      if not ct or ct < 0 then
+         return nil, "Excess pipeline responses"
+      elseif ct == 1 then
+         self._pipeline_ct = nil
+      else
+         self._pipeline_ct = ct - 1
+      end
+   end
+   return _get_response(self)
 end
 
 
@@ -222,8 +261,8 @@ end
 -- Responses --
 ---------------
 
----Read and parse one response, passing on timeout if non-blocking.
-function Sidereal:get_response()
+-- Read and parse one response, passing on timeout if non-blocking.
+function _get_response(self)    --(set as local above)
    local ok, line = self:receive("*l")
    trace("RECV: ", ok, line)
    if not ok then return nil, line end
@@ -998,7 +1037,7 @@ cmd("PUNSUBSCRIBE", nil, { noreply=true, cmdname="punsubscribeall"  })
 -- Messages recieved by listening to patterns come as a 4-tuple of
 -- {operation, pattern, actual channel name, message}.
 function Sidereal:listen()
-	local ok, rest = self:get_response()
+	local ok, rest = _get_response(self)
 	return ok, rest
 end
 
