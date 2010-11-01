@@ -204,12 +204,15 @@ end
 -- @see Sidereal:send_pipeline()
 -- @see Sidereal:get_response()
 function Sidereal:pipeline()
+   if self._pipeline then return nil, "Already pipelining" end
    self._pipeline = {}
+   return true
 end
 
 
 ---Send a queue of pipelined commands.
 function Sidereal:send_pipeline()
+   if not self._pipeline then return nil, "Not pipelining" end
    self:send(concat(self._pipeline, "\r\n"))
    self._pipeline = false
 end

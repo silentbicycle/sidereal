@@ -400,6 +400,21 @@ function test_pipelining_mode()
 end
 
 
+function test_double_pipeline()
+   assert_true(R:pipeline())
+   local ok, err = R:pipeline()
+   assert_nil(ok, "Should fail on second attempt")
+   assert_equal("Already pipelining", err)
+end
+
+
+function test_send_without_pipeline()
+   local ok, err = R:send_pipeline()
+   assert_nil(ok, "Should fail when not pipelining")
+   assert_equal("Not pipelining", err)
+end
+
+
 function test_nonexist_cmd()
    local ok, err = R:send_receive("DWIM")
    assert_false(ok)
