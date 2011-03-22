@@ -115,7 +115,7 @@ function Sidereal:connect()
    local s, err = socket.connect(self.host, self.port)
    if not s then return nil, err end
    self._socket = s
-   if pass_hook then s:settimeout(0) end    --async operation
+   if self._pass then s:settimeout(0) end    --async operation
    s:setoption("tcp-nodelay", true) --disable nagle's algorithm
    if self._dbindex then self:select(self._dbindex) end
    return true, s
