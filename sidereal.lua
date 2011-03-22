@@ -1072,7 +1072,9 @@ cmd("EXEC", nil, { noreply=true,
 
 ---R: Abort the current transaction
 function Sidereal:discard() end
-cmd("DISCARD", nil)
+cmd("DISCARD", nil, { pre_hook=function(self, raw_args, send)
+                                  self._multi = nil; return send
+                               end })
 
 --[[
 -- Not available in 2.0.2...
