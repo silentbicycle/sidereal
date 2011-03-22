@@ -501,7 +501,7 @@ local function cmd(rfun, arg_types, opts)
             send = concat(b)
          end
          
-         if opts.pre_hook then send = opts.pre_hook(raw_args, send) end
+         if opts.pre_hook then send = opts.pre_hook(self, raw_args, send) end
          local ok, res
          if (opts.noreply) then
             ok, res= self:send(send)
@@ -510,7 +510,7 @@ local function cmd(rfun, arg_types, opts)
          end
          if ok then
             local ph = opts.post_hook
-            if ph then return ph(raw_args, res, self) end
+            if ph then return ph(self, raw_args, res, self) end
             return res
          else
             return nil, res
@@ -519,20 +519,23 @@ local function cmd(rfun, arg_types, opts)
 end
 
 
-local function num_to_bool(r_a, res)
+local function num_to_bool(self, r_a, res)
+   if self._pipeline or self._multi then return res end
    if type(res) == "number" then return res == 1 end
    return res
 end
 
 
-local function list_to_set(r_a, res)
+local function list_to_set(self, r_a, res)
+   if self._pipeline or self._multi then return res end
    local set = {}
    for _,k in ipairs(res) do set[k] = true end
    return set
 end
 
 
-local function pair_list_to_set(r_a, r)
+local function pair_list_to_set(self, r_a, r)
+   if self._pipeline or self._multi then return res end
    local t = {}
    for i=1,#r,2 do t[r[i]] = r[i+1] end
    return t
@@ -606,7 +609,7 @@ cmd("TTL", "k")
 function Sidereal:select(db_index) end
 cmd("SELECT", "d",
     { post_hook =
-      function(raw_args, res, sdb)
+      function(self, raw_args, res, sdb)
          sdb._dbindex = raw_args[1] --save the DB, for reconnecting
          return res
       end }
@@ -737,7 +740,7 @@ cmd("RPOP", "k")
 function Sidereal:blpop(...) end
 cmd("BLPOP", "Ki",
     { post_hook =
-      function(raw_args, res)
+      function(self, raw_args, res)
          if #res == 0 then return nil, "timeout" else return res[1], res[2] end
       end })
 
@@ -746,7 +749,7 @@ cmd("BLPOP", "Ki",
 function Sidereal:brpop(...) end
 cmd("BRPOP", "Ki",
     { post_hook =
-      function(raw_args, res)
+      function(self, raw_args, res)
          if #res == 0 then return nil, "timeout" else return res[1], res[2] end
       end })
 
@@ -853,7 +856,7 @@ cmd("ZREVRANGE", "kse")
 --    range query) from the sorted set
 function Sidereal:zrangebyscore(key, float, float) end
 cmd("ZRANGEBYSCORE", "kff",
-    { pre_hook=function(raw_args, msg)
+    { pre_hook=function(self, raw_args, msg)
                   local offset, count = raw_args[4], raw_args[5]
                   if offset and count then
                      offset, count = tonumber(offset), tonumber(count)
@@ -885,7 +888,7 @@ cmd("ZREMRANGEBYSCORE", "kff")
 ---R: Return a range of elements from the sorted set at key
 function Sidereal:zrange(key, start_index, end_index) end
 cmd("ZRANGE", "kse",
-    { pre_hook=function(raw_args, msg)
+    { pre_hook=function(self, raw_args, msg)
                  if raw_args[4] then
                     return msg .. " withscores"
                  else return msg end
@@ -989,7 +992,7 @@ cmd("BGREWRITEAOF", nil)
 -- @return Get - table with all properties matching pattern
 function Sidereal:config(action, ...) end
 cmd("CONFIG", "kv",
-    { pre_hook=function(raw_args, msg)
+    { pre_hook=function(self, raw_args, msg)
                   if raw_args[1] == "get" and raw_args[2] == nil then
                      return "get *" end
                   return msg
@@ -1044,7 +1047,7 @@ end
 
 ---R: Begin an atomic transaction of multiple commands
 function Sidereal:multi() end
-cmd("MULTI", nil)
+cmd("MULTI", nil, { pre_hook=function(self) self._multi = true end })
 
 ---R: Complete the current transaction
 function Sidereal:exec() end
@@ -1071,7 +1074,7 @@ cmd("UNWATCH", nil)
 function Sidereal:info() end
 cmd("INFO", nil,
     { post_hook =
-      function(raw_args, res)
+      function(self, raw_args, res)
          if raw_args[1] then return res end --"raw" flag
          local t = {}
          for k,v in gmatch(res, "(.-):(.-)\r\n") do
