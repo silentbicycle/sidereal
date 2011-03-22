@@ -609,8 +609,8 @@ cmd("TTL", "k")
 function Sidereal:select(db_index) end
 cmd("SELECT", "d",
     { post_hook =
-      function(self, raw_args, res, sdb)
-         sdb._dbindex = raw_args[1] --save the DB, for reconnecting
+      function(self, raw_args, res)
+         self._dbindex = raw_args[1] --save the DB, for reconnecting
          return res
       end }
  )
@@ -1047,11 +1047,28 @@ end
 
 ---R: Begin an atomic transaction of multiple commands
 function Sidereal:multi() end
-cmd("MULTI", nil, { pre_hook=function(self) self._multi = true end })
+cmd("MULTI", nil, { pre_hook=function(self, raw_args, send)
+                                self._multi = true; return send
+                             end })
 
----R: Complete the current transaction
+---R: Complete the current transaction, return an array of responses
 function Sidereal:exec() end
-cmd("EXEC", nil)
+cmd("EXEC", nil, { noreply=true,
+                   post_hook =  --collect multiple results
+                      function(self)
+                         local ok, line = self:receive("*l")
+                         if not ok then error("handling multiple responses failed(1)") end 
+                         local ct = line:match("%*(%d+)")
+                         if not ct then error("handling multiple responses failed(2)") end
+                         local res, cur = {}
+
+                         for i=1,ct do --accumulate responses
+                            ok, cur = _get_response(self)
+                            if not ok then error("handling multiple responses failed(3)") end 
+                            res[i] = cur
+                         end
+                         return res
+                      end })
 
 ---R: Abort the current transaction
 function Sidereal:discard() end

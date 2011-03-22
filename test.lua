@@ -2283,6 +2283,21 @@ function test_MULTI_abort()
    assert_equal(NULL, R:get"foo")
 end
 
+function test_SDIFF_MULTI_EXEC()
+   R:sadd("MYSET1", "one")
+   R:sadd("MYSET1", "two")
+   R:sadd("MYSET2", "two")
+   R:sadd("MYSET1", "three")
+
+   R:multi()
+   local x = R:sdiff("MYSET1", "MYSET2")
+   x = R:exec()
+   assert(#x == 1)
+   table.sort(x[1])
+   cmp(x[1], {"one", "three"})
+end
+
+
 if do_reconnect then
    -- Set your Redis timeout to less than the usual 300 for this one!
    local timeout = 5
