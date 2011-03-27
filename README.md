@@ -9,6 +9,12 @@ A [Redis][] library for Lua, with:
 As of Redis 2.0.2, all new commands are supported (except HMGET and HMSET,
 which are temporarily broken due to a protocol change).
 
+*Note:* Newer redis releases are not yet fully supported. There has been
+a protocol change and several new commands added. I have not had time to
+rework the library lately, as it works for my purposes. (I will get to
+it, eventually.) If you need it to be fixed in the near future, patches
+are welcome, or else contact me and we can make some sort of arrangement.
+
 To connect to a Redis server, use:
     c = sidereal.connect(host, port [, pass_hook])
     c:set("x", 12345)
