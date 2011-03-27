@@ -2297,6 +2297,29 @@ function test_SDIFF_MULTI_EXEC()
    cmp(x[1], {"one", "three"})
 end
 
+function test_pipeline_MULTI()
+   R:set("MYKEY", "value")
+   R:pipeline()
+   R:multi()
+   R:get("MYKEY")
+   R:exec()
+   R:send_pipeline()
+
+   local ok, res = R:get_response()
+   assert(ok)
+   assert_equal("OK", res)
+
+   ok, res = R:get_response()
+   assert(ok)
+   assert_equal("QUEUED", res)
+
+   ok, res = R:get_response()
+   assert(ok)
+   assert_table(res)
+   assert_equal("value", res[1])
+
+end
+
 
 if do_reconnect then
    -- Set your Redis timeout to less than the usual 300 for this one!

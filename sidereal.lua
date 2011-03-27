@@ -130,9 +130,22 @@ function Sidereal:pass()
 end
 
 
+local function pipeline_cmd(self, cmd)
+   trace("PIPELINED:", cmd)
+   local p = self._pipeline
+   p[#p+1] = cmd
+   self._pipeline_ct = self._pipeline_ct + 1
+   return true, PIPELINED
+end
+
+
 ---Send a raw string, don't wait for response.
-function Sidereal:send(cmd, retry)
+function Sidereal:send(cmd, retry, is_pipeline)
    local pass = self.pass
+
+   if self._pipeline and not is_pipeline then
+      return pipeline_cmd(self, cmd)
+   end
 
    while true do
       local ok, err = self._socket:send(cmd .. "\r\n")
@@ -167,11 +180,7 @@ local _get_response
 ---Send a raw string and (if not pipelining) return the response.
 function Sidereal:send_receive(cmd, retry)
    if self._pipeline then
-      trace("PIPELINED:", cmd)
-      local p = self._pipeline
-      p[#p+1] = cmd
-      self._pipeline_ct = self._pipeline_ct + 1
-      return true, PIPELINED
+      return pipeline_cmd(self, cmd)
    else
       local ok, err, rest = self:send(cmd, retry)
       if not ok then return nil, err end
@@ -231,7 +240,8 @@ end
 --   commands remain in the pipeline. Be sure to check send_pipeline's result!
 function Sidereal:send_pipeline()
    if not self._pipeline then return nil, "Not pipelining" end
-   local ok, err = self:send(concat(self._pipeline, "\r\n"))
+   trace("SENDING PIPELINE", self._pipeline_ct)
+   local ok, err = self:send(concat(self._pipeline, "\r\n"), nil, true)
    if ok then
       self._pipeline = false
    else
@@ -1056,6 +1066,7 @@ function Sidereal:exec() end
 cmd("EXEC", nil, { noreply=true,
                    post_hook =  --collect multiple results
                       function(self)
+                         if self._pipeline then return end
                          local ok, line = self:receive("*l")
                          if not ok then error("handling multiple responses failed(1)") end 
                          local ct = line:match("%*(%d+)")
